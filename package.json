@@ -1,7 +1,8 @@
 {
-  "name": "my-v0-project",
-  "version": "0.1.0",
+  "name": "labbounty",
+  "version": "1.0.0",
   "private": true,
+  "description": "Scientific research funding platform connecting funders with research labs",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

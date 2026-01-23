@@ -12,15 +12,17 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
 } from "@/components/ui/sidebar"
-import { Home, BarChart2, Settings, UserCircle, LifeBuoy, Coins } from "lucide-react" // Changed Briefcase to Coins
+import { Home, BarChart2, Settings, UserCircle, LifeBuoy, Target, PlusCircle, Building2, Beaker } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useSidebar } from "@/components/ui/sidebar"
 
 // Menu items.
 const mainMenuItems = [
-  { title: "Overview", url: "/dashboard", icon: Home },
-  { title: "Assets", url: "/dashboard/assets", icon: Coins }, // Changed from Stocks to Assets
+  { title: "Dashboard", url: "/dashboard", icon: Home },
+  { title: "Browse Bounties", url: "/bounties", icon: Target },
+  { title: "Create Bounty", url: "/bounties/create", icon: PlusCircle },
+  { title: "Labs", url: "/labs", icon: Building2 },
   { title: "Analytics", url: "/dashboard/analytics", icon: BarChart2 },
 ]
 
@@ -38,8 +40,8 @@ export function AppSidebar() {
     <Sidebar collapsible="icon" side="left">
       <SidebarHeader className="p-2 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2 font-semibold px-2">
-          <Coins className="h-6 w-6" /> {/* Changed icon */}
-          {sidebarState === "expanded" && <span>AssetTrack</span>} {/* Changed name */}
+          <Beaker className="h-6 w-6" />
+          {sidebarState === "expanded" && <span>LabBounty</span>}
         </Link>
       </SidebarHeader>
       <SidebarContent>
