@@ -2,8 +2,9 @@
 
 *Revolutionizing the way labs fundraise and researchers fund breakthrough science*
 
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/manoj-rs-projects-36521afd/v0-stock-market-dashboard)
-[![Built with v0](https://img.shields.io/badge/Built%20with-v0.dev-black?style=for-the-badge)](https://v0.dev/chat/projects/teQXwnqoIk2)
+[![Live on GitHub Pages](https://img.shields.io/badge/Live%20on-GitHub%20Pages-black?style=for-the-badge&logo=github)](https://raimp001.github.io/123/)
+[![Next.js](https://img.shields.io/badge/Next.js-15.2.4-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
 
 ## Overview
 
@@ -35,7 +36,7 @@ This platform makes it possible for anyone to fund critical research, from rare 
 - **Forms**: React Hook Form with Zod validation
 - **Data Tables**: TanStack React Table
 - **Charts**: Recharts
-- **Deployment**: Vercel
+- **Deployment**: GitHub Pages (with GitHub Actions)
 
 ## Features
 
@@ -96,9 +97,33 @@ This platform makes it possible for anyone to fund critical research, from rare 
 
 ## Deployment
 
-Your project is live at:
+### GitHub Pages (Current)
 
-**[https://vercel.com/manoj-rs-projects-36521afd/v0-stock-market-dashboard](https://vercel.com/manoj-rs-projects-36521afd/v0-stock-market-dashboard)**
+Your project is configured for automatic deployment to GitHub Pages:
+
+**Live Site**: [https://raimp001.github.io/123/](https://raimp001.github.io/123/)
+
+#### Setup GitHub Pages:
+1. Go to repository **Settings** → **Pages**
+2. Under "Build and deployment", set **Source** to: **GitHub Actions**
+3. Push any change to trigger automatic deployment
+4. Monitor deployment in the **Actions** tab
+
+The GitHub Actions workflow automatically:
+- Builds the static export on every push
+- Deploys to GitHub Pages
+- Updates the live site within minutes
+
+### Vercel (Alternative)
+
+For server-side rendering and advanced features:
+
+```bash
+npm install -g vercel
+vercel --prod
+```
+
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed deployment options.
 
 ## Contributing
 
