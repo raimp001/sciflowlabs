@@ -65,7 +65,16 @@ const config: Config = {
   		borderRadius: {
   			lg: 'var(--radius)',
   			md: 'calc(var(--radius) - 2px)',
-  			sm: 'calc(var(--radius) - 4px)'
+  			sm: 'calc(var(--radius) - 4px)',
+  			xl: '0.75rem',
+  			'2xl': '1rem'
+  		},
+  		fontFamily: {
+  			sans: ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif']
+  		},
+  		boxShadow: {
+  			'soft': '0 2px 8px rgba(0, 0, 0, 0.04)',
+  			'soft-lg': '0 4px 16px rgba(0, 0, 0, 0.06)',
   		},
   		keyframes: {
   			'accordion-down': {
