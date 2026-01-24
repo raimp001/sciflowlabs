@@ -10,17 +10,17 @@ import { cookies } from "next/headers"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Stock Tracker Dashboard",
-  description: "Track public and private company stocks and investments.",
-    generator: 'v0.dev'
+  title: "LabBounty - Scientific Research Funding Platform",
+  description: "Connect breakthrough ideas with world-class research labs. Fund the science that matters to you.",
+  generator: 'v0.dev'
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
-  const cookieStore = cookies()
+  const cookieStore = await cookies()
   const defaultOpen = cookieStore.get("sidebar:state")?.value === "true"
 
   return (
@@ -35,7 +35,7 @@ export default function RootLayout({
                 <div className="md:hidden">
                   <SidebarTrigger />
                 </div>
-                <h1 className="text-lg font-semibold ml-2 md:ml-0">Stock Dashboard</h1>
+                <h1 className="text-lg font-semibold ml-2 md:ml-0">LabBounty</h1>
               </header>
               <main className="flex-1 p-4 md:p-6">{children}</main>
             </div>
