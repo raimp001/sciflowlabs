@@ -1,6 +1,3 @@
-"use client"
-
-import { use } from "react"
 import { mockBounties } from "@/lib/bounty-data"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -20,8 +17,14 @@ import {
 import Link from "next/link"
 import { notFound } from "next/navigation"
 
-export default function BountyDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params)
+export function generateStaticParams() {
+  return mockBounties.map((bounty) => ({
+    id: bounty.id,
+  }))
+}
+
+export default async function BountyDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const bounty = mockBounties.find((b) => b.id === id)
 
   if (!bounty) {

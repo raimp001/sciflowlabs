@@ -1,6 +1,3 @@
-"use client"
-
-import { use } from "react"
 import { mockLabs } from "@/lib/bounty-data"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -23,8 +20,14 @@ import {
 import Link from "next/link"
 import { notFound } from "next/navigation"
 
-export default function LabDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params)
+export function generateStaticParams() {
+  return mockLabs.map((lab) => ({
+    id: lab.id,
+  }))
+}
+
+export default async function LabDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const lab = mockLabs.find((l) => l.id === id)
 
   if (!lab) {
