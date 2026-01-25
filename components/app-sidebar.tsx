@@ -64,13 +64,19 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon" side="left" className="border-r-0">
-      <SidebarHeader className="p-3 flex items-center justify-between border-b border-sidebar-border">
-        <Link href="/" className="flex items-center">
-          <SciFlowLogo 
-            size={sidebarState === "expanded" ? "md" : "sm"} 
-            showText={sidebarState === "expanded"}
-          />
-        </Link>
+      <SidebarHeader className="border-b border-sidebar-border">
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild tooltip="SciFlow Home" className="hover:bg-sidebar-accent">
+              <Link href="/" className="flex items-center">
+                <SciFlowLogo 
+                  size="sm"
+                  showText={sidebarState === "expanded"}
+                />
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarHeader>
       
       <SidebarContent className="px-2">
