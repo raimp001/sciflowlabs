@@ -12,7 +12,7 @@ import {
   SoftwareApplicationStructuredData,
   FAQStructuredData 
 } from "@/components/structured-data"
-import { SciFlowLogo } from "@/components/sciflow-logo"
+import Link from "next/link"
 
 // Sans-serif for UI elements
 const inter = Inter({ 
@@ -140,12 +140,17 @@ export default async function RootLayout({
                 <div className="md:hidden">
                   <SidebarTrigger />
                 </div>
-                <div className="ml-2 md:ml-0">
-                  <SciFlowLogo size="md" variant="dark" />
-                </div>
-                
-                {/* Decorative amber accent bar */}
-                <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-amber-400/50 to-transparent" />
+                <Link href="/" className="ml-2 md:ml-0 flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center">
+                    <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5">
+                      <path d="M9 3V11L5 19C4.5 20 5 21 6 21H18C19 21 19.5 20 19 19L15 11V3" stroke="url(#hg)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                      <path d="M9 3H15" stroke="url(#hg)" strokeWidth="1.5" strokeLinecap="round" />
+                      <circle cx="11" cy="15" r="1" fill="#34D399" />
+                      <defs><linearGradient id="hg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#F59E0B" /><stop offset="100%" stopColor="#10B981" /></linearGradient></defs>
+                    </svg>
+                  </div>
+                  <span className="text-lg font-semibold text-slate-900 dark:text-white">Sci<span className="text-amber-500">Flow</span></span>
+                </Link>
               </header>
               
               <main className="flex-1 p-4 md:p-6 bg-secondary/30">{children}</main>
