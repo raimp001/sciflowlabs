@@ -61,29 +61,47 @@ export default function HomePage() {
 
         {/* Features */}
         <div className="grid md:grid-cols-3 gap-6 mt-16">
-          <div className="p-6 rounded-xl bg-slate-800/50 border border-slate-700">
-            <FlaskConical className="w-8 h-8 text-emerald-400 mb-4" />
-            <h3 className="font-semibold text-white mb-2">Verified Labs</h3>
+          <Link 
+            href="/dashboard/labs" 
+            className="group p-6 rounded-xl bg-slate-800/50 border border-slate-700 hover:border-emerald-500/50 hover:bg-slate-800 transition-all duration-200 cursor-pointer"
+          >
+            <FlaskConical className="w-8 h-8 text-emerald-400 mb-4 group-hover:scale-110 transition-transform" />
+            <h3 className="font-semibold text-white mb-2 group-hover:text-emerald-400 transition-colors">Verified Labs</h3>
             <p className="text-sm text-slate-400">
               Reputation-scored labs with staking requirements ensure quality research delivery.
             </p>
-          </div>
+            <span className="inline-flex items-center text-xs text-emerald-400 mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
+              Browse Labs <ArrowRight className="w-3 h-3 ml-1" />
+            </span>
+          </Link>
 
-          <div className="p-6 rounded-xl bg-slate-800/50 border border-slate-700">
-            <Wallet className="w-8 h-8 text-amber-400 mb-4" />
-            <h3 className="font-semibold text-white mb-2">Hybrid Payments</h3>
+          <Link 
+            href="/dashboard/escrow" 
+            className="group p-6 rounded-xl bg-slate-800/50 border border-slate-700 hover:border-amber-500/50 hover:bg-slate-800 transition-all duration-200 cursor-pointer"
+          >
+            <Wallet className="w-8 h-8 text-amber-400 mb-4 group-hover:scale-110 transition-transform" />
+            <h3 className="font-semibold text-white mb-2 group-hover:text-amber-400 transition-colors">Hybrid Payments</h3>
             <p className="text-sm text-slate-400">
               Pay via Stripe or crypto (Solana/Base USDC). All funds held in secure escrow.
             </p>
-          </div>
+            <span className="inline-flex items-center text-xs text-amber-400 mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
+              View Escrow <ArrowRight className="w-3 h-3 ml-1" />
+            </span>
+          </Link>
 
-          <div className="p-6 rounded-xl bg-slate-800/50 border border-slate-700">
-            <Shield className="w-8 h-8 text-blue-400 mb-4" />
-            <h3 className="font-semibold text-white mb-2">Milestone Escrow</h3>
+          <Link 
+            href="/whitepaper#por" 
+            className="group p-6 rounded-xl bg-slate-800/50 border border-slate-700 hover:border-blue-500/50 hover:bg-slate-800 transition-all duration-200 cursor-pointer"
+          >
+            <Shield className="w-8 h-8 text-blue-400 mb-4 group-hover:scale-110 transition-transform" />
+            <h3 className="font-semibold text-white mb-2 group-hover:text-blue-400 transition-colors">Milestone Escrow</h3>
             <p className="text-sm text-slate-400">
               Funds release only on verified milestone completion with dispute resolution.
             </p>
-          </div>
+            <span className="inline-flex items-center text-xs text-blue-400 mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
+              Learn More <ArrowRight className="w-3 h-3 ml-1" />
+            </span>
+          </Link>
         </div>
       </div>
 
