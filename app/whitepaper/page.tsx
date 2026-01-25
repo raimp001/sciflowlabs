@@ -145,11 +145,6 @@ export default function WhitepaperPage() {
                 <li key={section.id}>
                   <a
                     href={`#${section.id}`}
-                    onClick={(e) => {
-                      e.preventDefault()
-                      // Use location.hash to trigger native browser scroll
-                      window.location.hash = section.id
-                    }}
                     className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer ${
                       activeSection === section.id 
                         ? "bg-amber-50 dark:bg-amber-900/20 border-l-2 border-amber-500" 
