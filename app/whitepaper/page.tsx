@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -40,13 +40,41 @@ export default function WhitepaperPage() {
   const [activeSection, setActiveSection] = useState("intro")
   const [tocExpanded, setTocExpanded] = useState(true)
 
-  const scrollToSection = (sectionId: string) => {
+  const scrollToSection = useCallback((sectionId: string) => {
     setActiveSection(sectionId)
-    const element = document.getElementById(sectionId)
-    if (element) {
-      element.scrollIntoView({ behavior: "smooth", block: "start" })
+    
+    // Use requestAnimationFrame to ensure DOM is ready
+    requestAnimationFrame(() => {
+      const element = document.getElementById(sectionId)
+      if (element) {
+        // Get the element's position relative to the document
+        const elementRect = element.getBoundingClientRect()
+        const absoluteElementTop = elementRect.top + window.pageYOffset
+        const offset = 120 // Account for sticky headers
+        
+        window.scrollTo({
+          top: absoluteElementTop - offset,
+          behavior: "smooth"
+        })
+      }
+    })
+  }, [])
+
+  // Handle hash changes and initial load
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.slice(1)
+      if (hash && sections.find(s => s.id === hash)) {
+        scrollToSection(hash)
+      }
     }
-  }
+    
+    // Check initial hash
+    handleHashChange()
+    
+    window.addEventListener("hashchange", handleHashChange)
+    return () => window.removeEventListener("hashchange", handleHashChange)
+  }, [scrollToSection])
 
   const handleDownloadPDF = () => {
     // In production, this would link to an actual PDF
@@ -135,9 +163,15 @@ export default function WhitepaperPage() {
             <ol className="divide-y divide-slate-100 dark:divide-slate-800">
               {sections.map((section) => (
                 <li key={section.id}>
-                  <button
-                    onClick={() => scrollToSection(section.id)}
-                    className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-900 ${
+                  <a
+                    href={`#${section.id}`}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      scrollToSection(section.id)
+                      // Update URL hash without page jump
+                      window.history.pushState(null, "", `#${section.id}`)
+                    }}
+                    className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer ${
                       activeSection === section.id 
                         ? "bg-amber-50 dark:bg-amber-900/20 border-l-2 border-amber-500" 
                         : ""
@@ -155,7 +189,7 @@ export default function WhitepaperPage() {
                     }`}>
                       {section.title}
                     </span>
-                  </button>
+                  </a>
                 </li>
               ))}
             </ol>
