@@ -43,21 +43,14 @@ export default function WhitepaperPage() {
   const scrollToSection = useCallback((sectionId: string) => {
     setActiveSection(sectionId)
     
-    // Use requestAnimationFrame to ensure DOM is ready
-    requestAnimationFrame(() => {
-      const element = document.getElementById(sectionId)
-      if (element) {
-        // Get the element's position relative to the document
-        const elementRect = element.getBoundingClientRect()
-        const absoluteElementTop = elementRect.top + window.pageYOffset
-        const offset = 120 // Account for sticky headers
-        
-        window.scrollTo({
-          top: absoluteElementTop - offset,
-          behavior: "smooth"
-        })
-      }
-    })
+    const element = document.getElementById(sectionId)
+    if (element) {
+      // Use scrollIntoView - CSS scroll-margin-top handles the offset
+      element.scrollIntoView({ 
+        behavior: "smooth", 
+        block: "start"
+      })
+    }
   }, [])
 
   // Handle hash changes and initial load
