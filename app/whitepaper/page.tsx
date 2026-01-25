@@ -149,9 +149,14 @@ export default function WhitepaperPage() {
                       e.preventDefault()
                       const element = document.getElementById(section.id)
                       if (element) {
-                        element.scrollIntoView({ behavior: "smooth", block: "start" })
-                        window.history.pushState(null, "", `#${section.id}`)
+                        // Update state first to highlight TOC item
                         setActiveSection(section.id)
+                        // Update URL
+                        window.history.pushState(null, "", `#${section.id}`)
+                        // Scroll after a small delay to let React finish re-rendering
+                        setTimeout(() => {
+                          element.scrollIntoView({ behavior: "smooth", block: "start" })
+                        }, 50)
                       }
                     }}
                     className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer ${
