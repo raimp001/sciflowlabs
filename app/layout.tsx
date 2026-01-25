@@ -141,15 +141,14 @@ export default async function RootLayout({
                   <SidebarTrigger />
                 </div>
                 <Link href="/" className="ml-2 md:ml-0 flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center">
-                    <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5">
-                      <path d="M9 3V11L5 19C4.5 20 5 21 6 21H18C19 21 19.5 20 19 19L15 11V3" stroke="url(#hg)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                      <path d="M9 3H15" stroke="url(#hg)" strokeWidth="1.5" strokeLinecap="round" />
-                      <circle cx="11" cy="15" r="1" fill="#34D399" />
-                      <defs><linearGradient id="hg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#F59E0B" /><stop offset="100%" stopColor="#10B981" /></linearGradient></defs>
-                    </svg>
-                  </div>
-                  <span className="text-lg font-semibold text-slate-900 dark:text-white">Sci<span className="text-amber-500">Flow</span></span>
+                  <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5">
+                    <path d="M9 3V11L5 19C4.5 20 5 21 6 21H18C19 21 19.5 20 19 19L15 11V3" stroke="url(#hg)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M9 3H15" stroke="url(#hg)" strokeWidth="1.5" strokeLinecap="round" />
+                    <circle cx="11" cy="15" r="1" fill="#34D399" />
+                    <circle cx="14" cy="16" r="0.8" fill="#6EE7B7" />
+                    <defs><linearGradient id="hg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#F59E0B" /><stop offset="100%" stopColor="#10B981" /></linearGradient></defs>
+                  </svg>
+                  <span className="text-base font-semibold text-slate-900 dark:text-white">Sci<span className="text-amber-500">Flow</span></span>
                 </Link>
               </header>
               
