@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -40,34 +40,21 @@ export default function WhitepaperPage() {
   const [activeSection, setActiveSection] = useState("intro")
   const [tocExpanded, setTocExpanded] = useState(true)
 
-  const scrollToSection = useCallback((sectionId: string) => {
-    setActiveSection(sectionId)
-    
-    const element = document.getElementById(sectionId)
-    if (element) {
-      // Use scrollIntoView - CSS scroll-margin-top handles the offset
-      element.scrollIntoView({ 
-        behavior: "smooth", 
-        block: "start"
-      })
-    }
-  }, [])
-
   // Handle hash changes and initial load
   useEffect(() => {
-    const handleHashChange = () => {
+    const updateActiveFromHash = () => {
       const hash = window.location.hash.slice(1)
       if (hash && sections.find(s => s.id === hash)) {
-        scrollToSection(hash)
+        setActiveSection(hash)
       }
     }
     
     // Check initial hash
-    handleHashChange()
+    updateActiveFromHash()
     
-    window.addEventListener("hashchange", handleHashChange)
-    return () => window.removeEventListener("hashchange", handleHashChange)
-  }, [scrollToSection])
+    window.addEventListener("hashchange", updateActiveFromHash)
+    return () => window.removeEventListener("hashchange", updateActiveFromHash)
+  }, [])
 
   const handleDownloadPDF = () => {
     // In production, this would link to an actual PDF
@@ -158,10 +145,6 @@ export default function WhitepaperPage() {
                 <li key={section.id}>
                   <a
                     href={`#${section.id}`}
-                    onClick={() => {
-                      setActiveSection(section.id)
-                      // Let the browser handle the hash navigation natively
-                    }}
                     className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer ${
                       activeSection === section.id 
                         ? "bg-amber-50 dark:bg-amber-900/20 border-l-2 border-amber-500" 
