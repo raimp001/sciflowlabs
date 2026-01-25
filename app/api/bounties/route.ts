@@ -46,16 +46,12 @@ export async function GET(request: NextRequest) {
     // Get current user
     const { data: { user } } = await supabase.auth.getUser()
 
-    // Build query
+    // Build query - simplified to avoid complex join issues
     let query = supabase
       .from('bounties')
       .select(`
         *,
-        funder:users!bounties_funder_id_fkey(id, full_name, avatar_url),
-        selected_lab:labs!bounties_selected_lab_id_fkey(id, name, verification_tier, reputation_score),
-        milestones(id, title, status, payout_percentage),
-        proposals(count),
-        escrow:escrows(status, total_amount)
+        selected_lab:labs(id, name, verification_tier, reputation_score)
       `, { count: 'exact' })
 
     // Apply filters
@@ -100,8 +96,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
+    // Transform to match frontend expectations (state -> current_state)
+    const transformedBounties = (data || []).map(bounty => ({
+      ...bounty,
+      current_state: bounty.state,
+    }))
+
     return NextResponse.json({
-      bounties: data,
+      bounties: transformedBounties,
       pagination: {
         page,
         limit,

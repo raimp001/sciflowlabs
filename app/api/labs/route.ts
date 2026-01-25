@@ -2,20 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
 
-// Validation schemas
+// Validation schemas - maps to actual database columns
 const createLabSchema = z.object({
   name: z.string().min(2).max(200),
-  institution: z.string().optional(),
-  bio: z.string().max(2000).optional(),
+  institution_affiliation: z.string().optional(),
+  description: z.string().max(2000).optional(),
   website: z.string().url().optional(),
-  country: z.string().optional(),
-  expertise_areas: z.array(z.string()).default([]),
-  equipment: z.array(z.string()).default([]),
-  publications: z.array(z.object({
-    title: z.string(),
-    url: z.string().url().optional(),
-    year: z.number().optional(),
-  })).default([]),
+  location_country: z.string().optional(),
+  specializations: z.array(z.string()).default([]),
+  team_size: z.number().optional(),
 })
 
 // GET /api/labs - List labs with filters
@@ -27,35 +22,24 @@ export async function GET(request: NextRequest) {
     // Parse query params
     const search = searchParams.get('search')
     const verificationTier = searchParams.get('verification_tier')
-    const expertise = searchParams.getAll('expertise')
     const minReputation = searchParams.get('minReputation')
     const sortBy = searchParams.get('sortBy') || 'reputation_score'
     const sortOrder = searchParams.get('sortOrder') || 'desc'
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '20')
 
-    // Build query
+    // Build query - using actual schema columns
     let query = supabase
       .from('labs')
-      .select(`
-        *,
-        user:users!labs_user_id_fkey(id, full_name, avatar_url, email),
-        completed_bounties:bounties(count),
-        active_proposals:proposals(count)
-      `, { count: 'exact' })
-      .eq('is_active', true)
+      .select('*', { count: 'exact' })
 
-    // Apply filters
+    // Apply filters - using actual column names from schema
     if (search) {
-      query = query.or(`name.ilike.%${search}%,institution.ilike.%${search}%,bio.ilike.%${search}%`)
+      query = query.or(`name.ilike.%${search}%,institution_affiliation.ilike.%${search}%,description.ilike.%${search}%`)
     }
 
     if (verificationTier) {
       query = query.eq('verification_tier', verificationTier)
-    }
-
-    if (expertise.length > 0) {
-      query = query.contains('expertise_areas', expertise)
     }
 
     if (minReputation) {
@@ -77,8 +61,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
+    // Transform data to match frontend expectations
+    const transformedLabs = (data || []).map(lab => ({
+      ...lab,
+      bio: lab.description,
+      institution: lab.institution_affiliation,
+      country: lab.location_country,
+      expertise_areas: lab.specializations,
+    }))
+
     return NextResponse.json({
-      labs: data,
+      labs: transformedLabs,
       pagination: {
         page,
         limit,
@@ -133,7 +126,6 @@ export async function POST(request: NextRequest) {
         user_id: user.id,
         verification_tier: 'unverified',
         reputation_score: 0,
-        is_active: true,
       })
       .select()
       .single()

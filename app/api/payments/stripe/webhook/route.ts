@@ -39,37 +39,53 @@ export async function POST(request: NextRequest) {
         const bountyId = paymentIntent.metadata.bounty_id
         const userId = paymentIntent.metadata.user_id
 
-        // Update escrow status
+        if (!bountyId || !userId) {
+          console.error('Missing bounty_id or user_id in payment intent metadata')
+          break
+        }
+
+        // Update escrow status to locked
         await supabase
           .from('escrows')
           .update({ 
-            status: 'funded',
-            funded_at: new Date().toISOString(),
+            status: 'locked',
+            locked_at: new Date().toISOString(),
           })
-          .eq('payment_intent_id', paymentIntent.id)
+          .eq('stripe_payment_intent_id', paymentIntent.id)
 
-        // Transition bounty to funding_escrow -> bidding
+        // Get current bounty to update state_history
+        const { data: currentBounty } = await supabase
+          .from('bounties')
+          .select('state_history')
+          .eq('id', bountyId)
+          .single()
+
+        const newStateHistory = [
+          ...(currentBounty?.state_history || []),
+          { 
+            from_state: 'funding_escrow',
+            to_state: 'bidding', 
+            timestamp: new Date().toISOString(), 
+            changed_by: userId,
+          }
+        ]
+
+        // Transition bounty to bidding (funds are now locked)
         await supabase
           .from('bounties')
           .update({
             state: 'bidding',
-            state_history: supabase.rpc('append_to_json_array', {
-              current_array: 'state_history',
-              new_item: { 
-                state: 'funding_escrow', 
-                timestamp: new Date().toISOString(), 
-                by: userId,
-              },
-            }),
+            funded_at: new Date().toISOString(),
+            state_history: newStateHistory,
           })
           .eq('id', bountyId)
 
         // Create notification
         await supabase.from('notifications').insert({
           user_id: userId,
-          type: 'payment_success',
+          type: 'payment_received',
           title: 'Bounty Funded Successfully',
-          message: 'Your bounty is now live and accepting proposals',
+          message: 'Your bounty is now live and accepting proposals from labs.',
           data: { bounty_id: bountyId },
         })
 
@@ -96,17 +112,19 @@ export async function POST(request: NextRequest) {
         // Update escrow status
         await supabase
           .from('escrows')
-          .update({ status: 'failed' })
-          .eq('payment_intent_id', paymentIntent.id)
+          .update({ status: 'pending' }) // Reset to pending on failure
+          .eq('stripe_payment_intent_id', paymentIntent.id)
 
-        // Create notification
-        await supabase.from('notifications').insert({
-          user_id: userId,
-          type: 'payment_failed',
-          title: 'Payment Failed',
-          message: 'Your payment could not be processed. Please try again.',
-          data: { bounty_id: bountyId },
-        })
+        // Create notification if we have user info
+        if (userId) {
+          await supabase.from('notifications').insert({
+            user_id: userId,
+            type: 'system',
+            title: 'Payment Failed',
+            message: 'Your payment could not be processed. Please try again.',
+            data: { bounty_id: bountyId },
+          })
+        }
 
         break
       }
@@ -117,8 +135,8 @@ export async function POST(request: NextRequest) {
         // Update escrow status
         await supabase
           .from('escrows')
-          .update({ status: 'cancelled' })
-          .eq('payment_intent_id', paymentIntent.id)
+          .update({ status: 'refunded' })
+          .eq('stripe_payment_intent_id', paymentIntent.id)
 
         break
       }
