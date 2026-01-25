@@ -18,14 +18,14 @@ import { useBounties } from "@/hooks/use-bounties"
 import Link from "next/link"
 
 const stateColors: Record<string, string> = {
-  drafting: "bg-[#F3F4F6] text-[#6B7280]",
-  funding_escrow: "bg-[#FEF3C7] text-[#92400E]",
-  bidding: "bg-[#DBEAFE] text-[#1E40AF]",
-  active_research: "bg-[#D1FAE5] text-[#065F46]",
-  milestone_review: "bg-[#FFEDD5] text-[#9A3412]",
-  dispute_resolution: "bg-[#FEE2E2] text-[#991B1B]",
-  completed: "bg-[#D1FAE5] text-[#065F46]",
-  cancelled: "bg-[#F3F4F6] text-[#6B7280]",
+  drafting: "bg-secondary text-muted-foreground",
+  funding_escrow: "bg-amber-500/20 text-amber-400 border border-amber-500/30",
+  bidding: "bg-blue-500/20 text-blue-400 border border-blue-500/30",
+  active_research: "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30",
+  milestone_review: "bg-orange-500/20 text-orange-400 border border-orange-500/30",
+  dispute_resolution: "bg-red-500/20 text-red-400 border border-red-500/30",
+  completed: "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30",
+  cancelled: "bg-secondary text-muted-foreground",
 }
 
 const stateLabels: Record<string, string> = {
@@ -57,7 +57,6 @@ export default function DashboardPage() {
     disputes: bounties.filter(b => b.current_state === "dispute_resolution").length,
   }
 
-  // Distinguish error vs empty state
   const hasError = error !== null
   const isEmpty = !isLoading && !hasError && bounties.length === 0
 
@@ -66,8 +65,8 @@ export default function DashboardPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-[#111827]">Dashboard</h1>
-          <p className="text-sm text-[#6B7280] mt-0.5">Manage your research bounties</p>
+          <h1 className="text-2xl font-serif text-foreground">Dashboard</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Manage your research bounties</p>
         </div>
         <CreateBountyModal />
       </div>
@@ -75,20 +74,19 @@ export default function DashboardPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: "Active", value: stats.active, icon: FlaskConical, color: "text-[#059669]" },
-          { label: "Total Value", value: formatCurrency(stats.total, "USD"), icon: Wallet, color: "text-[#6B5FED]" },
-          { label: "Labs", value: stats.labs, icon: Users, color: "text-[#2563EB]" },
-          { label: "Disputes", value: stats.disputes, icon: AlertTriangle, color: "text-[#DC2626]" },
+          { label: "Active", value: stats.active, icon: FlaskConical, color: "text-emerald-400" },
+          { label: "Total Value", value: formatCurrency(stats.total, "USD"), icon: Wallet, color: "text-accent" },
+          { label: "Labs", value: stats.labs, icon: Users, color: "text-blue-400" },
+          { label: "Disputes", value: stats.disputes, icon: AlertTriangle, color: "text-red-400" },
         ].map((stat) => (
           <Card 
             key={stat.label} 
-            className="bg-white border-[#E5E7EB] rounded-xl"
-            style={{boxShadow: '0 1px 3px rgba(0,0,0,0.08)'}}
+            className="bg-card border-border rounded-xl"
           >
             <CardContent className="p-4 flex items-center justify-between">
               <div>
-                <p className="text-xs text-[#6B7280]">{stat.label}</p>
-                <p className="text-xl font-semibold text-[#111827]">{stat.value}</p>
+                <p className="text-xs text-muted-foreground">{stat.label}</p>
+                <p className="text-xl font-semibold text-foreground">{stat.value}</p>
               </div>
               <stat.icon className={`w-5 h-5 ${stat.color}`} />
             </CardContent>
@@ -99,9 +97,9 @@ export default function DashboardPage() {
       {/* Bounties */}
       <div>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-[#111827]">Recent Bounties</h2>
+          <h2 className="text-lg font-medium text-foreground">Recent Bounties</h2>
           <Link href="/dashboard/bounties">
-            <Button variant="ghost" size="sm" className="text-[#6B7280] hover:text-[#111827]">
+            <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
               View All <ArrowRight className="w-4 h-4 ml-1" />
             </Button>
           </Link>
@@ -110,45 +108,42 @@ export default function DashboardPage() {
         {isLoading ? (
           <div className="grid gap-3">
             {[1, 2, 3].map((i) => (
-              <Card key={i} className="bg-white border-[#E5E7EB] rounded-xl" style={{boxShadow: '0 1px 3px rgba(0,0,0,0.08)'}}>
+              <Card key={i} className="bg-card border-border rounded-xl">
                 <CardContent className="p-4">
-                  <Skeleton className="h-5 w-3/4 mb-2" />
-                  <Skeleton className="h-4 w-1/4" />
+                  <Skeleton className="h-5 w-3/4 mb-2 bg-secondary" />
+                  <Skeleton className="h-4 w-1/4 bg-secondary" />
                 </CardContent>
               </Card>
             ))}
           </div>
         ) : hasError ? (
-          // Error state - technical issue
-          <Card className="bg-white border-[#E5E7EB] rounded-xl" style={{boxShadow: '0 1px 3px rgba(0,0,0,0.08)'}}>
+          <Card className="bg-card border-border rounded-xl">
             <CardContent className="p-10 text-center">
-              <AlertTriangle className="w-10 h-10 mx-auto text-[#9CA3AF] mb-4" />
-              <p className="font-medium text-[#111827] mb-2">Unable to load bounties</p>
-              <p className="text-sm text-[#6B7280] mb-4 max-w-sm mx-auto">
-                Please check your connection or try again later. 
-                If the problem persists, contact support.
+              <AlertTriangle className="w-10 h-10 mx-auto text-muted-foreground mb-4" />
+              <p className="font-medium text-foreground mb-2">Unable to load bounties</p>
+              <p className="text-sm text-muted-foreground mb-4 max-w-sm mx-auto">
+                Please check your connection or try again later.
               </p>
               <Button 
                 variant="outline" 
                 onClick={() => refresh()}
-                className="border-[#E5E7EB] text-[#111827] hover:bg-[#F3F4F6] rounded-lg"
+                className="border-border text-foreground hover:bg-secondary rounded-full"
               >
                 <RefreshCw className="w-4 h-4 mr-2" /> Retry
               </Button>
             </CardContent>
           </Card>
         ) : isEmpty ? (
-          // Empty state - no bounties yet (expected)
-          <Card className="bg-white border-[#E5E7EB] rounded-xl" style={{boxShadow: '0 1px 3px rgba(0,0,0,0.08)'}}>
+          <Card className="bg-card border-border rounded-xl">
             <CardContent className="p-10 text-center">
-              <FlaskConical className="w-10 h-10 mx-auto text-[#6B5FED] mb-4" />
-              <p className="font-semibold text-[#111827] mb-2">No bounties yet</p>
-              <p className="text-sm text-[#6B7280] mb-6 max-w-sm mx-auto">
+              <FlaskConical className="w-10 h-10 mx-auto text-accent mb-4" />
+              <p className="font-semibold text-foreground mb-2">No bounties yet</p>
+              <p className="text-sm text-muted-foreground mb-6 max-w-sm mx-auto">
                 Create your first research bounty to get started.
               </p>
               <CreateBountyModal 
                 trigger={
-                  <Button className="bg-[#6B5FED] hover:bg-[#5B4FDD] text-white rounded-lg">
+                  <Button className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-full">
                     <Plus className="w-4 h-4 mr-2" /> Create Bounty
                   </Button>
                 }
@@ -160,15 +155,14 @@ export default function DashboardPage() {
             {bounties.map((bounty) => (
               <Link key={bounty.id} href={`/dashboard/bounties/${bounty.id}`}>
                 <Card 
-                  className="bg-white border-[#E5E7EB] hover:border-[#6B5FED]/30 transition-colors cursor-pointer rounded-xl"
-                  style={{boxShadow: '0 1px 3px rgba(0,0,0,0.08)'}}
+                  className="bg-card border-border hover:border-accent/30 transition-colors cursor-pointer rounded-xl"
                 >
                   <CardContent className="p-4 flex items-center justify-between gap-4">
                     <div className="min-w-0 flex-1">
-                      <h3 className="font-medium text-[#111827] truncate">
+                      <h3 className="font-medium text-foreground truncate">
                         {bounty.title}
                       </h3>
-                      <p className="text-sm text-[#6B7280]">
+                      <p className="text-sm text-muted-foreground">
                         {formatCurrency(bounty.total_budget || 0, bounty.currency || "USD")}
                       </p>
                     </div>
@@ -184,17 +178,15 @@ export default function DashboardPage() {
       </div>
 
       {/* Quick Action */}
-      <Card 
-        className="bg-[#6B5FED] border-0 rounded-xl overflow-hidden"
-      >
+      <Card className="bg-accent/10 border-accent/20 rounded-xl overflow-hidden">
         <CardContent className="p-6 flex items-center justify-between gap-4">
           <div>
-            <p className="font-semibold text-white">Ready to fund research?</p>
-            <p className="text-sm text-white/80">Create a bounty and connect with verified labs</p>
+            <p className="font-medium text-foreground">Ready to fund research?</p>
+            <p className="text-sm text-muted-foreground">Create a bounty and connect with verified labs</p>
           </div>
           <CreateBountyModal 
             trigger={
-              <Button className="bg-white hover:bg-[#F3F4F6] text-[#6B5FED] font-medium rounded-lg">
+              <Button className="bg-primary text-primary-foreground hover:bg-primary/90 font-medium rounded-full">
                 Create Bounty
               </Button>
             }
