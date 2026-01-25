@@ -19,13 +19,56 @@ import { assign, createMachine, type MachineContext } from 'xstate';
 
 export type PaymentMethod = 'stripe' | 'solana_usdc' | 'base_usdc';
 export type LabVerificationTier = 'unverified' | 'basic' | 'verified' | 'trusted' | 'institutional';
-export type DisputeReason = 
-  | 'data_falsification' 
-  | 'protocol_deviation' 
-  | 'sample_tampering' 
-  | 'timeline_breach' 
+export type DisputeReason =
+  | 'data_falsification'
+  | 'protocol_deviation'
+  | 'sample_tampering'
+  | 'timeline_breach'
   | 'quality_failure'
   | 'communication_failure';
+
+export type RejectionReason =
+  | 'dangerous_research'
+  | 'unethical_content'
+  | 'illegal_activity'
+  | 'insufficient_detail'
+  | 'unrealistic_budget'
+  | 'spam_or_fraud'
+  | 'duplicate_bounty'
+  | 'other';
+
+export type RiskLevel = 'low' | 'medium' | 'high' | 'critical';
+
+export interface ContentFlags {
+  hasDangerousKeywords: boolean;
+  hasEthicalConcerns: boolean;
+  hasUnrealisticExpectations: boolean;
+  riskLevel: RiskLevel;
+  flaggedTerms: string[];
+  moderationNotes?: string;
+}
+
+export interface AdminReview {
+  reviewerId: string;
+  reviewerName: string;
+  status: 'pending' | 'approved' | 'rejected' | 'requires_changes';
+  reviewedAt?: Date;
+  notes?: string;
+  rejectionReason?: RejectionReason;
+  contentFlags: ContentFlags;
+  requiredChanges?: string[];
+}
+
+export interface ResearchDeadline {
+  startDate: Date;
+  deadlineDate: Date;
+  maxDurationDays: number;
+  extensionsGranted: number;
+  maxExtensions: number;
+  warningThresholdDays: number;
+  isOverdue: boolean;
+  lastExtensionReason?: string;
+}
 
 export interface Milestone {
   id: string;
@@ -85,7 +128,7 @@ export interface BountyContext {
   funderId: string;
   title: string;
   description: string;
-  
+
   // Protocol & requirements
   protocol: {
     methodology: string;
@@ -93,31 +136,42 @@ export interface BountyContext {
     qualityStandards: string[];
     ethicsApproval?: string;
   };
-  
+
   // Financial
   totalBudget: number;
   currency: 'USD' | 'USDC';
   paymentMethod?: PaymentMethod;
   escrow?: EscrowDetails;
-  
+
   // Milestones
   milestones: Milestone[];
   currentMilestoneIndex: number;
-  
+
   // Bidding & Assignment
   proposals: Proposal[];
   selectedLabId?: string;
   selectedProposalId?: string;
-  
+  biddingDeadline?: Date;
+  proposalAcceptedAt?: Date;
+
+  // Admin Review & Moderation
+  adminReview?: AdminReview;
+  contentFlags?: ContentFlags;
+
+  // Research Deadline Management
+  researchDeadline?: ResearchDeadline;
+
   // Dispute
   dispute?: DisputeDetails;
-  
+
   // Timestamps
   createdAt: Date;
+  submittedForReviewAt?: Date;
+  approvedAt?: Date;
   fundedAt?: Date;
   startedAt?: Date;
   completedAt?: Date;
-  
+
   // Error handling
   error?: string;
 }
@@ -128,17 +182,28 @@ export interface BountyContext {
 
 export type BountyEvent =
   | { type: 'SUBMIT_DRAFT'; protocol: BountyContext['protocol']; milestones: Milestone[] }
+  | { type: 'SUBMIT_FOR_REVIEW'; contentFlags: ContentFlags }
+  | { type: 'ADMIN_APPROVE'; reviewerId: string; reviewerName: string; notes?: string }
+  | { type: 'ADMIN_REJECT'; reviewerId: string; reviewerName: string; reason: RejectionReason; notes?: string }
+  | { type: 'ADMIN_REQUEST_CHANGES'; reviewerId: string; reviewerName: string; requiredChanges: string[]; notes?: string }
+  | { type: 'RESUBMIT_FOR_REVIEW'; contentFlags: ContentFlags }
   | { type: 'INITIATE_FUNDING'; paymentMethod: PaymentMethod }
   | { type: 'FUNDING_CONFIRMED'; escrow: EscrowDetails }
   | { type: 'FUNDING_FAILED'; error: string }
-  | { type: 'OPEN_BIDDING' }
+  | { type: 'OPEN_BIDDING'; biddingDeadline: Date }
   | { type: 'SUBMIT_PROPOSAL'; proposal: Proposal }
+  | { type: 'ACCEPT_PROPOSAL'; proposalId: string; researchDeadlineDays: number }
   | { type: 'SELECT_LAB'; proposalId: string }
   | { type: 'REJECT_ALL_PROPOSALS'; reason: string }
+  | { type: 'BIDDING_EXPIRED' }
   | { type: 'START_RESEARCH' }
   | { type: 'SUBMIT_MILESTONE'; milestoneId: string; evidenceHash: string; evidenceLinks: string[] }
   | { type: 'APPROVE_MILESTONE'; milestoneId: string }
   | { type: 'REQUEST_REVISION'; milestoneId: string; feedback: string }
+  | { type: 'REQUEST_EXTENSION'; reason: string; additionalDays: number }
+  | { type: 'GRANT_EXTENSION'; additionalDays: number }
+  | { type: 'DENY_EXTENSION'; reason: string }
+  | { type: 'DEADLINE_EXPIRED' }
   | { type: 'INITIATE_DISPUTE'; reason: DisputeReason; description: string; evidenceLinks: string[] }
   | { type: 'RESOLVE_DISPUTE'; resolution: DisputeDetails['resolution']; slashAmount?: number }
   | { type: 'RELEASE_FINAL_PAYOUT' }
@@ -147,6 +212,84 @@ export type BountyEvent =
 // ============================================================================
 // Guards
 // ============================================================================
+
+// ============================================================================
+// Dangerous/Prohibited Content Keywords (Guardrails)
+// ============================================================================
+
+const DANGEROUS_KEYWORDS = [
+  // Weapons & explosives
+  'bioweapon', 'chemical weapon', 'nerve agent', 'explosive synthesis',
+  'nuclear weapon', 'dirty bomb', 'poison gas', 'anthrax', 'ricin',
+  // Harmful substances
+  'synthesize drugs', 'manufacture narcotics', 'create toxins',
+  'deadly pathogen', 'engineered virus', 'gain of function',
+  // Illegal activities
+  'money laundering', 'human trafficking', 'child exploitation',
+  // Dangerous experiments
+  'human cloning', 'unethical human trials', 'without consent',
+];
+
+const ETHICAL_CONCERN_KEYWORDS = [
+  'animal cruelty', 'endangered species', 'no ethics approval',
+  'bypass regulations', 'avoid oversight', 'secret research',
+  'unauthorized experiments', 'military application',
+];
+
+export function analyzeContent(title: string, description: string, methodology: string): ContentFlags {
+  const combinedText = `${title} ${description} ${methodology}`.toLowerCase();
+  const flaggedTerms: string[] = [];
+
+  const hasDangerousKeywords = DANGEROUS_KEYWORDS.some(keyword => {
+    if (combinedText.includes(keyword.toLowerCase())) {
+      flaggedTerms.push(keyword);
+      return true;
+    }
+    return false;
+  });
+
+  const hasEthicalConcerns = ETHICAL_CONCERN_KEYWORDS.some(keyword => {
+    if (combinedText.includes(keyword.toLowerCase())) {
+      flaggedTerms.push(keyword);
+      return true;
+    }
+    return false;
+  });
+
+  // Detect unrealistic expectations
+  const unrealisticPatterns = [
+    /cure.*(?:all|every|any).*(?:disease|cancer|illness)/i,
+    /100%.*(?:guaranteed|success|effective)/i,
+    /(?:impossible|miracle|magic)/i,
+    /(?:overnight|instant).*(?:results|solution|cure)/i,
+  ];
+
+  const hasUnrealisticExpectations = unrealisticPatterns.some(pattern => {
+    if (pattern.test(combinedText)) {
+      flaggedTerms.push('unrealistic claims');
+      return true;
+    }
+    return false;
+  });
+
+  // Calculate risk level
+  let riskLevel: RiskLevel = 'low';
+  if (hasDangerousKeywords) {
+    riskLevel = 'critical';
+  } else if (hasEthicalConcerns) {
+    riskLevel = 'high';
+  } else if (hasUnrealisticExpectations) {
+    riskLevel = 'medium';
+  }
+
+  return {
+    hasDangerousKeywords,
+    hasEthicalConcerns,
+    hasUnrealisticExpectations,
+    riskLevel,
+    flaggedTerms,
+  };
+}
 
 const guards = {
   hasValidProtocol: ({ context }: { context: BountyContext }) => {
@@ -191,6 +334,38 @@ const guards = {
   escrowIsLocked: ({ context }: { context: BountyContext }) => {
     return Boolean(context.escrow?.lockedAt);
   },
+
+  // Admin Review Guards
+  isAdminApproved: ({ context }: { context: BountyContext }) => {
+    return context.adminReview?.status === 'approved';
+  },
+
+  isNotCriticalRisk: ({ context }: { context: BountyContext }) => {
+    return context.contentFlags?.riskLevel !== 'critical';
+  },
+
+  hasContentFlags: ({ context }: { context: BountyContext }) => {
+    return Boolean(context.contentFlags);
+  },
+
+  // Deadline Guards
+  canGrantExtension: ({ context }: { context: BountyContext }) => {
+    const deadline = context.researchDeadline;
+    if (!deadline) return false;
+    return deadline.extensionsGranted < deadline.maxExtensions;
+  },
+
+  isDeadlineExpired: ({ context }: { context: BountyContext }) => {
+    const deadline = context.researchDeadline;
+    if (!deadline) return false;
+    return new Date() > deadline.deadlineDate;
+  },
+
+  // Bidding Guards
+  isBiddingOpen: ({ context }: { context: BountyContext }) => {
+    if (!context.biddingDeadline) return true;
+    return new Date() < context.biddingDeadline;
+  },
 };
 
 // ============================================================================
@@ -204,6 +379,70 @@ const actions = {
       ...context,
       protocol: event.protocol,
       milestones: event.milestones,
+    };
+  }),
+
+  // Admin Review Actions
+  submitForReview: assign(({ context, event }) => {
+    if (event.type !== 'SUBMIT_FOR_REVIEW' && event.type !== 'RESUBMIT_FOR_REVIEW') return context;
+    return {
+      ...context,
+      submittedForReviewAt: new Date(),
+      contentFlags: event.contentFlags,
+      adminReview: {
+        reviewerId: '',
+        reviewerName: '',
+        status: 'pending' as const,
+        contentFlags: event.contentFlags,
+      },
+    };
+  }),
+
+  adminApprove: assign(({ context, event }) => {
+    if (event.type !== 'ADMIN_APPROVE') return context;
+    return {
+      ...context,
+      approvedAt: new Date(),
+      adminReview: {
+        ...context.adminReview!,
+        reviewerId: event.reviewerId,
+        reviewerName: event.reviewerName,
+        status: 'approved' as const,
+        reviewedAt: new Date(),
+        notes: event.notes,
+      },
+    };
+  }),
+
+  adminReject: assign(({ context, event }) => {
+    if (event.type !== 'ADMIN_REJECT') return context;
+    return {
+      ...context,
+      adminReview: {
+        ...context.adminReview!,
+        reviewerId: event.reviewerId,
+        reviewerName: event.reviewerName,
+        status: 'rejected' as const,
+        reviewedAt: new Date(),
+        rejectionReason: event.reason,
+        notes: event.notes,
+      },
+    };
+  }),
+
+  adminRequestChanges: assign(({ context, event }) => {
+    if (event.type !== 'ADMIN_REQUEST_CHANGES') return context;
+    return {
+      ...context,
+      adminReview: {
+        ...context.adminReview!,
+        reviewerId: event.reviewerId,
+        reviewerName: event.reviewerName,
+        status: 'requires_changes' as const,
+        reviewedAt: new Date(),
+        requiredChanges: event.requiredChanges,
+        notes: event.notes,
+      },
     };
   }),
 
@@ -233,11 +472,44 @@ const actions = {
     };
   }),
 
+  // Bidding Actions
+  openBidding: assign(({ context, event }) => {
+    if (event.type !== 'OPEN_BIDDING') return context;
+    return {
+      ...context,
+      biddingDeadline: event.biddingDeadline,
+    };
+  }),
+
   addProposal: assign(({ context, event }) => {
     if (event.type !== 'SUBMIT_PROPOSAL') return context;
     return {
       ...context,
       proposals: [...context.proposals, event.proposal],
+    };
+  }),
+
+  acceptProposal: assign(({ context, event }) => {
+    if (event.type !== 'ACCEPT_PROPOSAL') return context;
+    const proposal = context.proposals.find(p => p.id === event.proposalId);
+    const startDate = new Date();
+    const deadlineDate = new Date(startDate);
+    deadlineDate.setDate(deadlineDate.getDate() + event.researchDeadlineDays);
+
+    return {
+      ...context,
+      selectedProposalId: event.proposalId,
+      selectedLabId: proposal?.labId,
+      proposalAcceptedAt: new Date(),
+      researchDeadline: {
+        startDate,
+        deadlineDate,
+        maxDurationDays: event.researchDeadlineDays,
+        extensionsGranted: 0,
+        maxExtensions: 2,
+        warningThresholdDays: 7,
+        isOverdue: false,
+      },
     };
   }),
 
@@ -251,20 +523,48 @@ const actions = {
     };
   }),
 
+  // Research & Deadline Actions
   startResearch: assign(({ context }) => ({
     ...context,
     startedAt: new Date(),
-    milestones: context.milestones.map((m, i) => 
+    milestones: context.milestones.map((m, i) =>
       i === 0 ? { ...m, status: 'in_progress' as const } : m
     ),
   })),
+
+  grantExtension: assign(({ context, event }) => {
+    if (event.type !== 'GRANT_EXTENSION' || !context.researchDeadline) return context;
+    const newDeadline = new Date(context.researchDeadline.deadlineDate);
+    newDeadline.setDate(newDeadline.getDate() + event.additionalDays);
+
+    return {
+      ...context,
+      researchDeadline: {
+        ...context.researchDeadline,
+        deadlineDate: newDeadline,
+        extensionsGranted: context.researchDeadline.extensionsGranted + 1,
+        isOverdue: false,
+      },
+    };
+  }),
+
+  markDeadlineExpired: assign(({ context }) => {
+    if (!context.researchDeadline) return context;
+    return {
+      ...context,
+      researchDeadline: {
+        ...context.researchDeadline,
+        isOverdue: true,
+      },
+    };
+  }),
 
   submitMilestoneEvidence: assign(({ context, event }) => {
     if (event.type !== 'SUBMIT_MILESTONE') return context;
     return {
       ...context,
-      milestones: context.milestones.map(m => 
-        m.id === event.milestoneId 
+      milestones: context.milestones.map(m =>
+        m.id === event.milestoneId
           ? { ...m, evidenceHash: event.evidenceHash, status: 'submitted' as const }
           : m
       ),
@@ -293,7 +593,7 @@ const actions = {
     if (event.type !== 'REQUEST_REVISION') return context;
     return {
       ...context,
-      milestones: context.milestones.map(m => 
+      milestones: context.milestones.map(m =>
         m.id === event.milestoneId
           ? { ...m, status: 'in_progress' as const, evidenceHash: undefined }
           : m
@@ -384,13 +684,13 @@ export const bountyMachine = createMachine({
 
     /**
      * PROTOCOL_REVIEW
-     * Intermediate validation state before funding.
+     * Intermediate validation state before admin review.
      * Ensures all required fields are complete.
      */
     protocol_review: {
       always: [
         {
-          target: 'ready_for_funding',
+          target: 'pending_admin_review',
           guard: 'hasValidProtocol',
         },
         {
@@ -400,8 +700,67 @@ export const bountyMachine = createMachine({
     },
 
     /**
+     * PENDING_ADMIN_REVIEW
+     * Bounty submitted for admin moderation.
+     * Admin checks for dangerous, unethical, or unrealistic content.
+     */
+    pending_admin_review: {
+      on: {
+        SUBMIT_FOR_REVIEW: {
+          actions: 'submitForReview',
+        },
+        ADMIN_APPROVE: {
+          target: 'ready_for_funding',
+          actions: 'adminApprove',
+          guard: 'isNotCriticalRisk',
+        },
+        ADMIN_REJECT: {
+          target: 'rejected',
+          actions: 'adminReject',
+        },
+        ADMIN_REQUEST_CHANGES: {
+          target: 'requires_changes',
+          actions: 'adminRequestChanges',
+        },
+        CANCEL_BOUNTY: {
+          target: 'cancelled',
+        },
+      },
+    },
+
+    /**
+     * REQUIRES_CHANGES
+     * Admin has requested modifications before approval.
+     * Funder must address the concerns and resubmit.
+     */
+    requires_changes: {
+      on: {
+        SUBMIT_DRAFT: {
+          target: 'protocol_review',
+          actions: 'assignProtocol',
+        },
+        RESUBMIT_FOR_REVIEW: {
+          target: 'pending_admin_review',
+          actions: 'submitForReview',
+        },
+        CANCEL_BOUNTY: {
+          target: 'cancelled',
+        },
+      },
+    },
+
+    /**
+     * REJECTED
+     * Admin has permanently rejected the bounty.
+     * Reasons include dangerous research, unethical content, etc.
+     */
+    rejected: {
+      type: 'final',
+    },
+
+    /**
      * READY_FOR_FUNDING
-     * Protocol approved, awaiting funder's payment.
+     * Admin approved, awaiting funder's payment.
      */
     ready_for_funding: {
       on: {
@@ -455,16 +814,28 @@ export const bountyMachine = createMachine({
     /**
      * BIDDING
      * Open for verified labs to submit proposals.
-     * Funder reviews and selects the winning bid.
+     * First lab to be accepted gets the bounty (first-come-first-served).
+     * Has a deadline for proposal submissions.
      */
     bidding: {
       initial: 'open',
       states: {
         open: {
           on: {
+            OPEN_BIDDING: {
+              actions: 'openBidding',
+            },
             SUBMIT_PROPOSAL: {
               actions: 'addProposal',
+              guard: 'isBiddingOpen',
             },
+            ACCEPT_PROPOSAL: [
+              {
+                target: 'lab_selected',
+                guard: 'hasProposals',
+                actions: 'acceptProposal',
+              },
+            ],
             SELECT_LAB: [
               {
                 target: 'lab_selected',
@@ -473,6 +844,9 @@ export const bountyMachine = createMachine({
               },
             ],
             REJECT_ALL_PROPOSALS: {
+              target: 'no_valid_bids',
+            },
+            BIDDING_EXPIRED: {
               target: 'no_valid_bids',
             },
           },
@@ -484,6 +858,7 @@ export const bountyMachine = createMachine({
           on: {
             OPEN_BIDDING: {
               target: 'open',
+              actions: 'openBidding',
             },
           },
         },
@@ -500,8 +875,9 @@ export const bountyMachine = createMachine({
 
     /**
      * ACTIVE_RESEARCH
-     * Lab is conducting research.
+     * Lab is conducting research with a deadline.
      * Work proceeds through milestones.
+     * Extensions can be requested (up to max limit).
      */
     active_research: {
       entry: 'startResearch',
@@ -510,9 +886,61 @@ export const bountyMachine = createMachine({
           target: 'milestone_review',
           actions: 'submitMilestoneEvidence',
         },
+        REQUEST_EXTENSION: {
+          target: 'extension_review',
+        },
+        DEADLINE_EXPIRED: {
+          target: 'deadline_breach',
+          actions: 'markDeadlineExpired',
+        },
         INITIATE_DISPUTE: {
           target: 'dispute_resolution',
           actions: 'createDispute',
+        },
+      },
+    },
+
+    /**
+     * EXTENSION_REVIEW
+     * Lab has requested a deadline extension.
+     * Funder decides whether to grant additional time.
+     */
+    extension_review: {
+      on: {
+        GRANT_EXTENSION: {
+          target: 'active_research',
+          actions: 'grantExtension',
+          guard: 'canGrantExtension',
+        },
+        DENY_EXTENSION: {
+          target: 'active_research',
+        },
+        INITIATE_DISPUTE: {
+          target: 'dispute_resolution',
+          actions: 'createDispute',
+        },
+      },
+    },
+
+    /**
+     * DEADLINE_BREACH
+     * Lab has exceeded the research deadline.
+     * Funder can initiate dispute or grant final extension.
+     */
+    deadline_breach: {
+      on: {
+        GRANT_EXTENSION: {
+          target: 'active_research',
+          actions: 'grantExtension',
+          guard: 'canGrantExtension',
+        },
+        INITIATE_DISPUTE: {
+          target: 'dispute_resolution',
+          actions: 'createDispute',
+        },
+        SUBMIT_MILESTONE: {
+          target: 'milestone_review',
+          actions: 'submitMilestoneEvidence',
         },
       },
     },
@@ -670,6 +1098,7 @@ export const stateMetadata: Record<string, {
   color: string;
   icon: string;
   allowedActions: string[];
+  requiresAdmin?: boolean;
 }> = {
   drafting: {
     label: 'Drafting',
@@ -685,10 +1114,32 @@ export const stateMetadata: Record<string, {
     icon: 'FileCheck',
     allowedActions: [],
   },
+  pending_admin_review: {
+    label: 'Pending Admin Review',
+    description: 'Awaiting moderation for safety and legitimacy',
+    color: 'coral',
+    icon: 'Shield',
+    allowedActions: ['ADMIN_APPROVE', 'ADMIN_REJECT', 'ADMIN_REQUEST_CHANGES'],
+    requiresAdmin: true,
+  },
+  requires_changes: {
+    label: 'Changes Required',
+    description: 'Admin requested modifications before approval',
+    color: 'amber',
+    icon: 'PenLine',
+    allowedActions: ['SUBMIT_DRAFT', 'RESUBMIT_FOR_REVIEW', 'CANCEL_BOUNTY'],
+  },
+  rejected: {
+    label: 'Rejected',
+    description: 'Bounty rejected due to policy violation',
+    color: 'destructive',
+    icon: 'ShieldX',
+    allowedActions: [],
+  },
   ready_for_funding: {
     label: 'Ready for Funding',
-    description: 'Protocol approved, awaiting escrow deposit',
-    color: 'amber',
+    description: 'Admin approved, awaiting escrow deposit',
+    color: 'sage',
     icon: 'Wallet',
     allowedActions: ['INITIATE_FUNDING', 'CANCEL_BOUNTY'],
   },
@@ -701,17 +1152,31 @@ export const stateMetadata: Record<string, {
   },
   bidding: {
     label: 'Open for Bids',
-    description: 'Verified labs submitting proposals',
-    color: 'navy',
+    description: 'Labs submitting proposals (first accepted wins)',
+    color: 'coral',
     icon: 'Users',
-    allowedActions: ['SUBMIT_PROPOSAL', 'SELECT_LAB', 'CANCEL_BOUNTY'],
+    allowedActions: ['SUBMIT_PROPOSAL', 'ACCEPT_PROPOSAL', 'CANCEL_BOUNTY'],
   },
   active_research: {
     label: 'Active Research',
-    description: 'Lab conducting research',
+    description: 'Lab conducting research with deadline',
     color: 'sage',
     icon: 'FlaskConical',
-    allowedActions: ['SUBMIT_MILESTONE', 'INITIATE_DISPUTE'],
+    allowedActions: ['SUBMIT_MILESTONE', 'REQUEST_EXTENSION', 'INITIATE_DISPUTE'],
+  },
+  extension_review: {
+    label: 'Extension Review',
+    description: 'Lab requested additional time',
+    color: 'amber',
+    icon: 'Clock',
+    allowedActions: ['GRANT_EXTENSION', 'DENY_EXTENSION', 'INITIATE_DISPUTE'],
+  },
+  deadline_breach: {
+    label: 'Deadline Exceeded',
+    description: 'Research deadline has passed',
+    color: 'destructive',
+    icon: 'TimerOff',
+    allowedActions: ['GRANT_EXTENSION', 'INITIATE_DISPUTE', 'SUBMIT_MILESTONE'],
   },
   milestone_review: {
     label: 'Milestone Review',

@@ -4,9 +4,10 @@
 
 /**
  * SciFlow Global Styles
- * Design System: Claude-inspired light minimalist aesthetic
- * 
- * Light backgrounds, soft accents, generous whitespace
+ * Design System: Claude.ai Aesthetic
+ *
+ * Warm cream backgrounds, coral/terracotta accents,
+ * generous whitespace, soft shadows, professional feel
  */
 
 /* ========================================
@@ -21,98 +22,112 @@ html {
 }
 
 /* ========================================
-   CSS CUSTOM PROPERTIES - LIGHT THEME
-   Claude-style: warm off-white, soft violet accent
+   CSS CUSTOM PROPERTIES - CLAUDE.AI THEME
+   Warm cream, coral accent, sophisticated palette
    ======================================== */
 @layer base {
   :root {
-    /* Backgrounds - warm off-white */
-    --background: 40 20% 98%; /* #FAFAF9 */
-    --foreground: 220 13% 10%; /* #111827 near-black */
+    /* Backgrounds - warm cream/beige like Claude.ai */
+    --background: 35 25% 97%; /* #FAF8F5 warm cream */
+    --foreground: 20 10% 12%; /* #1F1D1B charcoal */
 
-    /* Cards - pure white with subtle shadow */
+    /* Cards - pure white with subtle warmth */
     --card: 0 0% 100%;
-    --card-foreground: 220 13% 10%;
+    --card-foreground: 20 10% 12%;
 
     /* Popovers */
     --popover: 0 0% 100%;
-    --popover-foreground: 220 13% 10%;
+    --popover-foreground: 20 10% 12%;
 
-    /* Primary - soft violet/indigo */
-    --primary: 245 53% 59%; /* #6B5FED */
+    /* Primary - Claude coral/terracotta */
+    --primary: 16 72% 60%; /* #D97757 coral */
     --primary-foreground: 0 0% 100%;
 
-    /* Secondary - light gray */
-    --secondary: 220 14% 96%;
-    --secondary-foreground: 220 9% 46%; /* #6B7280 */
+    /* Secondary - warm gray */
+    --secondary: 30 15% 94%;
+    --secondary-foreground: 20 6% 40%;
 
-    /* Muted */
-    --muted: 220 14% 96%;
-    --muted-foreground: 220 9% 46%;
+    /* Muted - subtle warm tones */
+    --muted: 30 15% 94%;
+    --muted-foreground: 20 6% 45%;
 
-    /* Accent */
-    --accent: 245 53% 59%;
+    /* Accent - coral for interactive elements */
+    --accent: 16 72% 60%;
     --accent-foreground: 0 0% 100%;
 
-    /* Destructive */
-    --destructive: 0 72% 51%;
+    /* Success - muted sage green */
+    --success: 142 45% 45%;
+    --success-foreground: 0 0% 100%;
+
+    /* Warning - warm amber */
+    --warning: 38 92% 55%;
+    --warning-foreground: 20 10% 12%;
+
+    /* Destructive - muted terracotta red */
+    --destructive: 0 55% 55%;
     --destructive-foreground: 0 0% 100%;
 
-    /* Borders - very subtle */
-    --border: 220 13% 91%; /* #E5E7EB */
-    --input: 220 13% 91%;
-    --ring: 245 53% 59%;
+    /* Borders - warm subtle gray */
+    --border: 30 15% 88%;
+    --input: 30 15% 88%;
+    --ring: 16 72% 60%;
 
     /* Border radius - consistent */
-    --radius: 0.5rem;
+    --radius: 0.625rem;
 
-    /* Chart colors */
-    --chart-1: 245 53% 59%;
-    --chart-2: 158 64% 52%;
-    --chart-3: 43 96% 56%;
-    --chart-4: 0 72% 51%;
-    --chart-5: 220 9% 46%;
+    /* Chart colors - Claude-inspired palette */
+    --chart-1: 16 72% 60%;
+    --chart-2: 142 45% 45%;
+    --chart-3: 38 92% 55%;
+    --chart-4: 200 65% 50%;
+    --chart-5: 260 50% 55%;
 
-    /* Sidebar - keep dark for contrast */
-    --sidebar-background: 220 13% 10%;
-    --sidebar-foreground: 220 14% 85%;
-    --sidebar-border: 220 13% 18%;
-    --sidebar-accent: 220 13% 15%;
+    /* Sidebar - deep charcoal for contrast */
+    --sidebar-background: 20 10% 10%;
+    --sidebar-foreground: 30 15% 85%;
+    --sidebar-border: 20 10% 18%;
+    --sidebar-accent: 20 10% 15%;
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-ring: 245 53% 59%;
-    --sidebar-primary: 245 53% 59%;
+    --sidebar-ring: 16 72% 60%;
+    --sidebar-primary: 16 72% 60%;
     --sidebar-primary-foreground: 0 0% 100%;
   }
 
-  /* Dark theme - only for sidebar */
+  /* Dark theme - optional for full dark mode */
   .dark {
-    --background: 220 13% 10%;
-    --foreground: 220 14% 96%;
+    --background: 20 10% 8%;
+    --foreground: 30 15% 92%;
 
-    --card: 220 13% 13%;
-    --card-foreground: 220 14% 96%;
+    --card: 20 10% 11%;
+    --card-foreground: 30 15% 92%;
 
-    --popover: 220 13% 13%;
-    --popover-foreground: 220 14% 96%;
+    --popover: 20 10% 11%;
+    --popover-foreground: 30 15% 92%;
 
-    --primary: 245 53% 65%;
+    --primary: 16 72% 65%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 13% 18%;
-    --secondary-foreground: 220 9% 70%;
+    --secondary: 20 10% 18%;
+    --secondary-foreground: 30 10% 70%;
 
-    --muted: 220 13% 18%;
-    --muted-foreground: 220 9% 60%;
+    --muted: 20 10% 18%;
+    --muted-foreground: 30 10% 60%;
 
-    --accent: 245 53% 65%;
+    --accent: 16 72% 65%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 72% 51%;
+    --success: 142 45% 50%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 92% 55%;
+    --warning-foreground: 20 10% 12%;
+
+    --destructive: 0 55% 55%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 13% 20%;
-    --input: 220 13% 20%;
-    --ring: 245 53% 65%;
+    --border: 20 10% 20%;
+    --input: 20 10% 20%;
+    --ring: 16 72% 65%;
   }
 }
 

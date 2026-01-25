@@ -1,42 +1,20 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Inter, Merriweather, JetBrains_Mono } from "next/font/google"
 import "./globals.css"
 import { Providers } from "@/components/providers"
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/app-sidebar"
 import { cookies } from "next/headers"
-import { 
-  OrganizationStructuredData, 
-  WebsiteStructuredData, 
+import {
+  OrganizationStructuredData,
+  WebsiteStructuredData,
   SoftwareApplicationStructuredData,
-  FAQStructuredData 
+  FAQStructuredData
 } from "@/components/structured-data"
 import Link from "next/link"
 
-// Sans-serif for UI elements
-const inter = Inter({ 
-  subsets: ["latin"],
-  variable: "--font-sans",
-  display: "swap",
-})
-
-// Serif for contract/document text
-const merriweather = Merriweather({
-  subsets: ["latin"],
-  weight: ["300", "400", "700"],
-  style: ["normal", "italic"],
-  variable: "--font-serif",
-  display: "swap",
-})
-
-// Monospace for code, hashes, addresses
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  variable: "--font-mono",
-  display: "swap",
-})
+// Font CSS variables - using system font fallbacks
+const fontVariables = "--font-sans --font-serif --font-mono"
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://sciflowlabs.com'),
@@ -121,12 +99,11 @@ export default async function RootLayout({
   const defaultOpen = cookieStore.get("sidebar:state")?.value === "true"
 
   return (
-    <html 
-      lang="en" 
+    <html
+      lang="en"
       suppressHydrationWarning
-      className={`${inter.variable} ${merriweather.variable} ${jetbrainsMono.variable}`}
     >
-      <body className={inter.className}>
+      <body className="font-sans antialiased">
         <OrganizationStructuredData />
         <WebsiteStructuredData />
         <SoftwareApplicationStructuredData />

@@ -12,19 +12,21 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
 } from "@/components/ui/sidebar"
-import { 
-  Home, 
-  FlaskConical, 
-  FileText, 
-  Users, 
-  Settings, 
-  UserCircle, 
+import {
+  Home,
+  FlaskConical,
+  FileText,
+  Users,
+  Settings,
+  UserCircle,
   LifeBuoy,
   Wallet,
   Scale,
   BarChart3,
   ShieldCheck,
-  CircleDollarSign
+  CircleDollarSign,
+  Shield,
+  GitBranch,
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -50,6 +52,11 @@ const platformMenuItems = [
   { title: "Analytics", url: "/dashboard/analytics", icon: BarChart3 },
   { title: "Disputes", url: "/dashboard/disputes", icon: Scale },
   { title: "Leaderboard", url: "/dashboard/leaderboard", icon: Users },
+  { title: "State Machine", url: "/dashboard/state-machine", icon: GitBranch },
+]
+
+const adminMenuItems = [
+  { title: "Admin Review", url: "/dashboard/admin", icon: Shield },
 ]
 
 const accountMenuItems = [
@@ -82,7 +89,7 @@ export function AppSidebar() {
       <SidebarContent className="px-2">
         {/* Funder Actions */}
         <SidebarGroup>
-          <SidebarGroupLabel className="text-xs font-semibold text-amber-400/90 uppercase tracking-wider">
+          <SidebarGroupLabel className="text-xs font-semibold text-coral-400/90 uppercase tracking-wider">
             Funder
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -93,7 +100,7 @@ export function AppSidebar() {
                     asChild 
                     isActive={pathname === item.url || (item.url !== "/dashboard" && pathname.startsWith(item.url))} 
                     tooltip={item.title}
-                    className="text-slate-200 hover:text-white hover:bg-sidebar-accent data-[active=true]:bg-amber-500/25 data-[active=true]:text-amber-300 data-[active=true]:font-medium"
+                    className="text-slate-200 hover:text-white hover:bg-sidebar-accent data-[active=true]:bg-coral-500/25 data-[active=true]:text-coral-300 data-[active=true]:font-medium"
                   >
                     <Link href={item.url}>
                       <item.icon className="h-4 w-4" />
@@ -141,11 +148,37 @@ export function AppSidebar() {
             <SidebarMenu>
               {platformMenuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton 
-                    asChild 
-                    isActive={pathname.startsWith(item.url)} 
+                  <SidebarMenuButton
+                    asChild
+                    isActive={pathname.startsWith(item.url)}
                     tooltip={item.title}
                     className="text-slate-200 hover:text-white hover:bg-sidebar-accent data-[active=true]:bg-sky-500/25 data-[active=true]:text-sky-300 data-[active=true]:font-medium"
+                  >
+                    <Link href={item.url}>
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* Admin */}
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-xs font-semibold text-coral-400/90 uppercase tracking-wider">
+            Admin
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {adminMenuItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={pathname.startsWith(item.url)}
+                    tooltip={item.title}
+                    className="text-slate-200 hover:text-white hover:bg-sidebar-accent data-[active=true]:bg-coral-500/25 data-[active=true]:text-coral-300 data-[active=true]:font-medium"
                   >
                     <Link href={item.url}>
                       <item.icon className="h-4 w-4" />

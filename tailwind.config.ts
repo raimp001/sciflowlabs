@@ -2,16 +2,18 @@ import type { Config } from "tailwindcss";
 
 /**
  * SciFlow Tailwind Configuration
- * 
- * Design System: "Clause" Aesthetic
- * - High-trust, legal-tech professional appearance
- * - Clean, authoritative, and transparent
- * 
+ *
+ * Design System: Claude.ai Aesthetic
+ * - Warm, approachable, and professional
+ * - Generous whitespace with soft shadows
+ * - Sophisticated yet friendly color palette
+ *
  * Color Philosophy:
- * - Navy for authority and trust
- * - Amber for warmth and highlights (variables, amounts)
- * - Sage for verified/safe states
- * - Muted red for alerts (not alarming, but noticeable)
+ * - Coral/terracotta for primary actions and highlights
+ * - Warm cream backgrounds for comfort
+ * - Sage green for verified/success states
+ * - Muted reds for alerts (sophisticated, not alarming)
+ * - Charcoal for authoritative text
  */
 
 const config: Config = {
@@ -65,71 +67,103 @@ const config: Config = {
         ring: 'hsl(var(--ring))',
 
         // ========================================
-        // SCIFLOW BRAND COLORS (Direct hex values)
+        // CLAUDE.AI INSPIRED BRAND COLORS
         // ========================================
-        
-        // Deep Navy - Primary actions, headers, trust
-        navy: {
-          DEFAULT: '#1A2332',
-          50: '#E8EBF0',
-          100: '#C5CCD8',
-          200: '#9EABBD',
-          300: '#7789A1',
-          400: '#59708C',
-          500: '#3B5877',
-          600: '#2D4562',
-          700: '#1F334D',
-          800: '#1A2332', // Primary
-          900: '#0F1520',
-          950: '#080A0F',
+
+        // Coral/Terracotta - Primary accent, CTAs, highlights
+        coral: {
+          DEFAULT: '#D97757',
+          50: '#FEF6F4',
+          100: '#FCE8E3',
+          200: '#F9D1C7',
+          300: '#F4B3A1',
+          400: '#EC9279',
+          500: '#D97757', // Primary - Claude coral
+          600: '#C45F3F',
+          700: '#A34932',
+          800: '#7D3826',
+          900: '#5A291D',
+          950: '#3A1A12',
         },
-        
-        // Warm Amber - Highlights, variables, amounts, CTAs
-        amber: {
-          DEFAULT: '#D4A574',
-          50: '#FDF8F3',
-          100: '#F9EDE0',
-          200: '#F2DBBF',
-          300: '#E8C59A',
-          400: '#D4A574', // Primary
-          500: '#C48F5A',
-          600: '#AB7542',
-          700: '#8B5D35',
-          800: '#6B472A',
-          900: '#4A3220',
-          950: '#2D1E13',
+
+        // Cream/Beige - Background tones, warmth
+        cream: {
+          DEFAULT: '#FAF8F5',
+          50: '#FFFFFF',
+          100: '#FDF9F6',
+          200: '#FAF8F5', // Primary - warm cream
+          300: '#F4EFE9',
+          400: '#EAE3D9',
+          500: '#DDD4C7',
+          600: '#C7BAA8',
+          700: '#A99A84',
+          800: '#847766',
+          900: '#5F554A',
+          950: '#3D362F',
         },
-        
+
         // Sage Green - Verified, safe, success, completed
         sage: {
-          DEFAULT: '#7BA05B',
-          50: '#F4F7F1',
-          100: '#E5EDE0',
-          200: '#CBDBBF',
-          300: '#ADC69A',
-          400: '#8FB275',
-          500: '#7BA05B', // Primary
-          600: '#628149',
-          700: '#4C6439',
-          800: '#3A4C2C',
-          900: '#283521',
-          950: '#171F13',
+          DEFAULT: '#4A9B6B',
+          50: '#F0F7F3',
+          100: '#DCEFE3',
+          200: '#B8DFC6',
+          300: '#8BCAA3',
+          400: '#5FB37F',
+          500: '#4A9B6B', // Primary - muted sage
+          600: '#3C7D56',
+          700: '#316345',
+          800: '#284D38',
+          900: '#1F3A2B',
+          950: '#12241A',
         },
-        
-        // Muted Red - Alerts, disputes, errors (non-alarming)
+
+        // Charcoal - Text, headers, dark elements
+        charcoal: {
+          DEFAULT: '#1F1D1B',
+          50: '#F5F5F4',
+          100: '#E5E5E4',
+          200: '#CBCBC9',
+          300: '#A8A7A4',
+          400: '#7C7A76',
+          500: '#5E5C58',
+          600: '#4A4846',
+          700: '#3A3836',
+          800: '#2A2826',
+          900: '#1F1D1B', // Primary - charcoal
+          950: '#0F0E0D',
+        },
+
+        // Alert Red - Disputes, errors (sophisticated, not alarming)
         alert: {
-          DEFAULT: '#A53F3F',
-          50: '#F8EDED',
-          100: '#F0D5D5',
-          200: '#E0ABAB',
-          300: '#CD7C7C',
-          400: '#B85656',
-          500: '#A53F3F', // Primary
-          600: '#8A3333',
-          700: '#6E2929',
-          800: '#532020',
-          900: '#3A1616',
-          950: '#220D0D',
+          DEFAULT: '#C65D5D',
+          50: '#FDF5F5',
+          100: '#FBE8E8',
+          200: '#F6D1D1',
+          300: '#EFB0B0',
+          400: '#E48585',
+          500: '#C65D5D', // Primary - muted red
+          600: '#A94848',
+          700: '#893939',
+          800: '#692D2D',
+          900: '#4D2222',
+          950: '#2E1414',
+        },
+
+        // Amber - Warnings, pending states
+        amber: {
+          DEFAULT: '#E5A84B',
+          50: '#FEF9F0',
+          100: '#FCF0DB',
+          200: '#F9E0B5',
+          300: '#F5CC88',
+          400: '#EFB65B',
+          500: '#E5A84B', // Primary - warm amber
+          600: '#CC8F32',
+          700: '#A67128',
+          800: '#7D5520',
+          900: '#573B17',
+          950: '#35230E',
         },
 
         // Chart colors (matching the palette)
@@ -178,16 +212,17 @@ const config: Config = {
       },
 
       // ========================================
-      // BOX SHADOW (Subtle, layered)
+      // BOX SHADOW (Soft, warm, Claude-style)
       // ========================================
       boxShadow: {
-        'clause': '0 1px 3px 0 rgb(26 35 50 / 0.05), 0 1px 2px -1px rgb(26 35 50 / 0.05)',
-        'clause-md': '0 4px 6px -1px rgb(26 35 50 / 0.05), 0 2px 4px -2px rgb(26 35 50 / 0.05)',
-        'clause-lg': '0 10px 15px -3px rgb(26 35 50 / 0.05), 0 4px 6px -4px rgb(26 35 50 / 0.05)',
-        'clause-xl': '0 20px 25px -5px rgb(26 35 50 / 0.08), 0 8px 10px -6px rgb(26 35 50 / 0.05)',
-        'card-hover': '0 8px 30px rgb(26 35 50 / 0.12)',
-        'amber-glow': '0 0 20px rgb(212 165 116 / 0.3)',
-        'sage-glow': '0 0 20px rgb(123 160 91 / 0.3)',
+        'soft': '0 1px 3px 0 rgb(31 29 27 / 0.04), 0 1px 2px -1px rgb(31 29 27 / 0.04)',
+        'soft-md': '0 4px 6px -1px rgb(31 29 27 / 0.06), 0 2px 4px -2px rgb(31 29 27 / 0.04)',
+        'soft-lg': '0 10px 15px -3px rgb(31 29 27 / 0.08), 0 4px 6px -4px rgb(31 29 27 / 0.04)',
+        'soft-xl': '0 20px 25px -5px rgb(31 29 27 / 0.10), 0 8px 10px -6px rgb(31 29 27 / 0.05)',
+        'card-hover': '0 8px 30px rgb(31 29 27 / 0.12)',
+        'coral-glow': '0 0 20px rgb(217 119 87 / 0.25)',
+        'sage-glow': '0 0 20px rgb(74 155 107 / 0.25)',
+        'amber-glow': '0 0 20px rgb(229 168 75 / 0.25)',
       },
 
       // ========================================

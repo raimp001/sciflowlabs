@@ -4,10 +4,11 @@ import { useMemo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { stateMetadata, type BountyState } from '@/lib/machines/bounty-machine'
-import { 
-  FileEdit, FileCheck, Wallet, Lock, Users, FlaskConical, 
-  ClipboardCheck, AlertTriangle, Scale, Split, CircleDollarSign, 
-  CheckCircle2, Undo2, XCircle, ArrowRight, ChevronRight
+import {
+  FileEdit, FileCheck, Wallet, Lock, Users, FlaskConical,
+  ClipboardCheck, AlertTriangle, Scale, Split, CircleDollarSign,
+  CheckCircle2, Undo2, XCircle, ArrowRight, ChevronRight,
+  Shield, ShieldX, PenLine, Clock, TimerOff
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -26,14 +27,21 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   CheckCircle2,
   Undo2,
   XCircle,
+  Shield,
+  ShieldX,
+  PenLine,
+  Clock,
+  TimerOff,
 }
 
 const colorMap: Record<string, { bg: string; border: string; text: string }> = {
-  slate: { bg: 'bg-slate-100 dark:bg-slate-800', border: 'border-slate-300', text: 'text-slate-700' },
+  slate: { bg: 'bg-charcoal-100 dark:bg-charcoal-800', border: 'border-charcoal-300', text: 'text-charcoal-700' },
   amber: { bg: 'bg-amber-100 dark:bg-amber-900/30', border: 'border-amber-300', text: 'text-amber-700' },
-  navy: { bg: 'bg-navy-100 dark:bg-navy-800', border: 'border-navy-300', text: 'text-navy-700' },
+  coral: { bg: 'bg-coral-100 dark:bg-coral-900/30', border: 'border-coral-300', text: 'text-coral-700' },
+  navy: { bg: 'bg-charcoal-100 dark:bg-charcoal-800', border: 'border-charcoal-300', text: 'text-charcoal-700' },
   sage: { bg: 'bg-sage-100 dark:bg-sage-900/30', border: 'border-sage-300', text: 'text-sage-700' },
-  destructive: { bg: 'bg-red-100 dark:bg-red-900/30', border: 'border-red-300', text: 'text-red-700' },
+  destructive: { bg: 'bg-alert-100 dark:bg-alert-900/30', border: 'border-alert-300', text: 'text-alert-600' },
+  pending: { bg: 'bg-amber-100 dark:bg-amber-900/30', border: 'border-amber-300', text: 'text-amber-700' },
 }
 
 interface StateNodeProps {
@@ -57,7 +65,7 @@ function StateNode({ state, isActive, isCompleted, isCurrent, onClick }: StateNo
         'relative p-4 rounded-xl border-2 transition-all cursor-pointer',
         colors.bg,
         colors.border,
-        isCurrent && 'ring-2 ring-amber-500 ring-offset-2',
+        isCurrent && 'ring-2 ring-coral-500 ring-offset-2',
         isCompleted && 'opacity-60',
         !isActive && !isCompleted && !isCurrent && 'opacity-40',
         onClick && 'hover:scale-105'
@@ -66,7 +74,7 @@ function StateNode({ state, isActive, isCompleted, isCurrent, onClick }: StateNo
     >
       {isCurrent && (
         <div className="absolute -top-2 -right-2">
-          <Badge className="bg-amber-500 text-white text-xs animate-pulse">
+          <Badge className="bg-coral-500 text-white text-xs animate-pulse">
             Current
           </Badge>
         </div>
@@ -110,9 +118,10 @@ export function StateMachineVisualizer({
     return stateHistory.map(h => h.state)
   }, [stateHistory])
 
-  // Define the main flow
+  // Define the main flow with admin review
   const mainFlow: BountyState[] = [
     'drafting',
+    'pending_admin_review',
     'ready_for_funding',
     'funding_escrow',
     'bidding',
@@ -122,7 +131,19 @@ export function StateMachineVisualizer({
     'completed',
   ]
 
-  // Branch states
+  // Admin review branch
+  const adminReviewFlow: BountyState[] = [
+    'requires_changes',
+    'rejected',
+  ]
+
+  // Deadline management branch
+  const deadlineFlow: BountyState[] = [
+    'extension_review',
+    'deadline_breach',
+  ]
+
+  // Dispute branch
   const disputeFlow: BountyState[] = [
     'dispute_resolution',
     'external_arbitration',
@@ -149,7 +170,7 @@ export function StateMachineVisualizer({
                   'flex items-center gap-2 px-3 py-2 rounded-lg border transition-all',
                   colors.bg,
                   colors.border,
-                  isCurrent && 'ring-2 ring-amber-500',
+                  isCurrent && 'ring-2 ring-coral-500',
                   isCompleted && 'opacity-60',
                   !isCompleted && !isCurrent && 'opacity-40'
                 )}
@@ -174,7 +195,7 @@ export function StateMachineVisualizer({
     <Card>
       <CardHeader className="pb-4">
         <CardTitle className="text-lg flex items-center gap-2">
-          <FlaskConical className="w-5 h-5 text-amber-500" />
+          <FlaskConical className="w-5 h-5 text-coral-500" />
           Bounty Lifecycle
         </CardTitle>
       </CardHeader>
@@ -211,10 +232,50 @@ export function StateMachineVisualizer({
           </div>
         </div>
 
+        {/* Admin Review Branch */}
+        <div className="space-y-3 pt-4 border-t">
+          <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+            <Shield className="w-4 h-4 text-coral-500" />
+            Admin Moderation Path
+          </h4>
+          <div className="grid grid-cols-2 gap-3">
+            {adminReviewFlow.map((state) => (
+              <StateNode
+                key={state}
+                state={state}
+                isCompleted={completedStates.includes(state)}
+                isCurrent={currentState === state}
+                isActive={adminReviewFlow.some(s => completedStates.includes(s)) || currentState === state}
+                onClick={() => onStateClick?.(state)}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Deadline Management Branch */}
+        <div className="space-y-3 pt-4 border-t">
+          <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+            <Clock className="w-4 h-4 text-amber-500" />
+            Deadline Management Path
+          </h4>
+          <div className="grid grid-cols-2 gap-3">
+            {deadlineFlow.map((state) => (
+              <StateNode
+                key={state}
+                state={state}
+                isCompleted={completedStates.includes(state)}
+                isCurrent={currentState === state}
+                isActive={deadlineFlow.some(s => completedStates.includes(s)) || currentState === state}
+                onClick={() => onStateClick?.(state)}
+              />
+            ))}
+          </div>
+        </div>
+
         {/* Dispute Branch */}
         <div className="space-y-3 pt-4 border-t">
           <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 text-red-500" />
+            <AlertTriangle className="w-4 h-4 text-alert-500" />
             Dispute Resolution Path
           </h4>
           <div className="grid grid-cols-3 gap-3">
@@ -234,7 +295,7 @@ export function StateMachineVisualizer({
         {/* Cancel Branch */}
         <div className="space-y-3 pt-4 border-t">
           <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-            <XCircle className="w-4 h-4 text-slate-500" />
+            <XCircle className="w-4 h-4 text-charcoal-400" />
             Cancellation Path
           </h4>
           <div className="grid grid-cols-2 gap-3">
