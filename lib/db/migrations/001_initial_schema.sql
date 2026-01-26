@@ -498,6 +498,59 @@ $$ LANGUAGE plpgsql;
 -- REALTIME SUBSCRIPTIONS
 -- ============================================================================
 
+-- ============================================================================
+-- ADDITIONAL RPC FUNCTIONS
+-- ============================================================================
+
+-- Increment released amount in escrow (atomic operation)
+CREATE OR REPLACE FUNCTION increment_escrow_released(
+  p_escrow_id UUID,
+  p_amount NUMERIC(18,6)
+)
+RETURNS NUMERIC(18,6) AS $$
+DECLARE
+  v_new_released NUMERIC(18,6);
+BEGIN
+  UPDATE escrows
+  SET released_amount = released_amount + p_amount,
+      updated_at = NOW()
+  WHERE id = p_escrow_id
+  RETURNING released_amount INTO v_new_released;
+
+  RETURN v_new_released;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Append item to JSON array (for state_history)
+CREATE OR REPLACE FUNCTION append_state_history(
+  p_bounty_id UUID,
+  p_from_state TEXT,
+  p_to_state TEXT,
+  p_changed_by UUID
+)
+RETURNS JSONB AS $$
+DECLARE
+  v_new_history JSONB;
+BEGIN
+  UPDATE bounties
+  SET state_history = state_history || jsonb_build_object(
+    'from_state', p_from_state,
+    'to_state', p_to_state,
+    'timestamp', NOW(),
+    'changed_by', p_changed_by
+  ),
+  updated_at = NOW()
+  WHERE id = p_bounty_id
+  RETURNING state_history INTO v_new_history;
+
+  RETURN v_new_history;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================================
+-- REALTIME SUBSCRIPTIONS
+-- ============================================================================
+
 -- Enable realtime for key tables
 ALTER PUBLICATION supabase_realtime ADD TABLE bounties;
 ALTER PUBLICATION supabase_realtime ADD TABLE milestones;

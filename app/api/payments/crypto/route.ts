@@ -36,9 +36,22 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { bounty_id, chain, amount, wallet_address } = body
 
-    if (!bounty_id || !chain || !amount || !wallet_address) {
-      return NextResponse.json({ 
-        error: 'Missing required fields: bounty_id, chain, amount, wallet_address' 
+    if (!bounty_id || !chain || amount === undefined || amount === null || !wallet_address) {
+      return NextResponse.json({
+        error: 'Missing required fields: bounty_id, chain, amount, wallet_address'
+      }, { status: 400 })
+    }
+
+    // Validate amount is a positive finite number
+    const parsedAmount = parseFloat(amount)
+    if (isNaN(parsedAmount) || !isFinite(parsedAmount) || parsedAmount <= 0) {
+      return NextResponse.json({ error: 'Amount must be a positive number' }, { status: 400 })
+    }
+
+    // Validate reasonable bounds (min $1, max $10M in USDC)
+    if (parsedAmount < 1 || parsedAmount > 10000000) {
+      return NextResponse.json({
+        error: 'Amount must be between 1 and 10,000,000 USDC'
       }, { status: 400 })
     }
 
@@ -67,8 +80,8 @@ export async function POST(request: NextRequest) {
 
     // Calculate platform fee
     const platformFeePercent = parseInt(process.env.PLATFORM_FEE_PERCENTAGE || '5')
-    const platformFee = amount * platformFeePercent / 100
-    const totalAmount = amount + platformFee
+    const platformFee = parsedAmount * platformFeePercent / 100
+    const totalAmount = parsedAmount + platformFee
 
     // Generate escrow details based on chain using the appropriate service
     let escrowDetails: {
@@ -262,16 +275,17 @@ export async function PATCH(request: NextRequest) {
       .from('bounties')
       .update({
         state: 'bidding',
-        state_history: supabase.rpc('append_to_json_array', {
-          current_array: 'state_history',
-          new_item: { 
-            state: 'funding_escrow', 
-            timestamp: new Date().toISOString(), 
-            by: user.id,
-          },
-        }),
+        funded_at: new Date().toISOString(),
       })
       .eq('id', escrow.bounty_id)
+
+    // Update state history using RPC function
+    await supabase.rpc('append_state_history', {
+      p_bounty_id: escrow.bounty_id,
+      p_from_state: 'funding_escrow',
+      p_to_state: 'bidding',
+      p_changed_by: user.id
+    })
 
     // Create notification
     await supabase.from('notifications').insert({

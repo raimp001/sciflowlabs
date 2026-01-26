@@ -342,13 +342,11 @@ async function handleTransitionSideEffects(
               amount: payoutAmount,
             })
 
-            // Update escrow released amount
-            await supabase
-              .from('escrows')
-              .update({ 
-                released_amount: supabase.rpc('increment_released', { amount: payoutAmount }),
-              })
-              .eq('id', escrow.id)
+            // Update escrow released amount using RPC function for atomic increment
+            await supabase.rpc('increment_escrow_released', {
+              p_escrow_id: escrow.id,
+              p_amount: payoutAmount
+            })
           }
 
           // Set next milestone to in_progress

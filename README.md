@@ -1,30 +1,95 @@
-# Stock market dashboard
+# SciFlow - Decentralized Science Research Bounty Platform
 
-*Automatically synced with your [v0.dev](https://v0.dev) deployments*
-
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/manoj-rs-projects-36521afd/v0-stock-market-dashboard)
-[![Built with v0](https://img.shields.io/badge/Built%20with-v0.dev-black?style=for-the-badge)](https://v0.dev/chat/projects/teQXwnqoIk2)
+SciFlow is a platform that connects research funders with verified labs to fund scientific research through bounties. Built with Next.js and deployed on Vercel.
 
 ## Overview
 
-This repository will stay in sync with your deployed chats on [v0.dev](https://v0.dev).
-Any changes you make to your deployed app will be automatically pushed to this repository from [v0.dev](https://v0.dev).
+SciFlow enables:
+- **Funders** to create research bounties with clear protocols, milestones, and budgets
+- **Labs** to submit proposals and conduct research
+- **Secure escrow** payments via Stripe, Solana (USDC), or Base (USDC)
+- **Milestone-based** payouts to ensure research quality
+- **Dispute resolution** for conflict management
 
-## Deployment
+## Key Features
 
-Your project is live at:
+- **Bounty Management**: Create, fund, and manage research bounties with structured milestones
+- **Lab Verification**: Tiered verification system (unverified, basic, verified, trusted, institutional)
+- **Multi-Payment Support**: Stripe for fiat, Solana and Base for crypto payments
+- **State Machine**: Robust bounty lifecycle management (drafting → funding → bidding → active research → completion)
+- **Real-time Updates**: Live notifications and bounty status tracking
+- **Escrow System**: Secure fund holding with milestone-based release
 
-**[https://vercel.com/manoj-rs-projects-36521afd/v0-stock-market-dashboard](https://vercel.com/manoj-rs-projects-36521afd/v0-stock-market-dashboard)**
+## Tech Stack
 
-## Build your app
+- **Frontend**: Next.js 14 (App Router), React, Tailwind CSS, shadcn/ui
+- **Backend**: Next.js API Routes, Supabase (PostgreSQL)
+- **Authentication**: Supabase Auth
+- **Payments**: Stripe, Solana Web3.js, Coinbase CDP SDK
+- **State Management**: XState for bounty lifecycle
 
-Continue building your app on:
+## Getting Started
 
-**[https://v0.dev/chat/projects/teQXwnqoIk2](https://v0.dev/chat/projects/teQXwnqoIk2)**
+### Prerequisites
 
-## How It Works
+- Node.js 18+
+- pnpm
+- Supabase project
+- Stripe account (for fiat payments)
 
-1. Create and modify your project using [v0.dev](https://v0.dev)
-2. Deploy your chats from the v0 interface
-3. Changes are automatically pushed to this repository
-4. Vercel deploys the latest version from this repository
+### Environment Variables
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+STRIPE_SECRET_KEY=your_stripe_secret_key
+```
+
+### Installation
+
+```bash
+pnpm install
+pnpm dev
+```
+
+### Database Setup
+
+Run the migration in your Supabase SQL editor:
+
+```bash
+# Copy the contents of lib/db/migrations/001_initial_schema.sql
+```
+
+## Project Structure
+
+```
+├── app/                    # Next.js app router pages and API routes
+│   ├── api/               # API endpoints
+│   │   ├── bounties/      # Bounty CRUD and transitions
+│   │   ├── proposals/     # Proposal management
+│   │   └── payments/      # Payment processing
+│   ├── dashboard/         # User dashboard pages
+│   └── bounties/          # Public bounty pages
+├── components/            # React components
+├── lib/                   # Utilities and configurations
+│   ├── db/               # Database schema and migrations
+│   ├── machines/         # XState state machines
+│   ├── payments/         # Payment provider integrations
+│   └── supabase/         # Supabase client configuration
+├── hooks/                 # Custom React hooks
+└── types/                 # TypeScript type definitions
+```
+
+## Bounty Lifecycle States
+
+1. **Drafting** - Funder creates bounty with protocols and milestones
+2. **Ready for Funding** - Protocol validated, awaiting escrow deposit
+3. **Funding Escrow** - Funds being secured
+4. **Bidding** - Labs submit proposals
+5. **Active Research** - Selected lab conducts research
+6. **Milestone Review** - Funder reviews submitted deliverables
+7. **Completed** - All milestones verified, funds released
+
+## License
+
+MIT
