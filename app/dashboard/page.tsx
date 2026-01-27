@@ -61,34 +61,36 @@ export default function DashboardPage() {
   const isEmpty = !isLoading && !hasError && bounties.length === 0
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
+    <div className="max-w-5xl mx-auto space-y-8">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-serif text-foreground">Dashboard</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Manage your research bounties</p>
+          <h1 className="text-2xl md:text-3xl font-serif text-foreground">Dashboard</h1>
+          <p className="text-sm text-muted-foreground mt-1">Manage your research bounties</p>
         </div>
         <CreateBountyModal />
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5">
         {[
           { label: "Active", value: stats.active, icon: FlaskConical, color: "text-emerald-400" },
           { label: "Total Value", value: formatCurrency(stats.total, "USD"), icon: Wallet, color: "text-accent" },
           { label: "Labs", value: stats.labs, icon: Users, color: "text-blue-400" },
           { label: "Disputes", value: stats.disputes, icon: AlertTriangle, color: "text-red-400" },
         ].map((stat) => (
-          <Card 
-            key={stat.label} 
-            className="bg-card border-border rounded-xl"
+          <Card
+            key={stat.label}
+            className="bg-card border-border"
           >
-            <CardContent className="p-4 flex items-center justify-between">
+            <CardContent className="p-5 flex items-center justify-between">
               <div>
-                <p className="text-xs text-muted-foreground">{stat.label}</p>
-                <p className="text-xl font-semibold text-foreground">{stat.value}</p>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{stat.label}</p>
+                <p className="text-2xl font-semibold text-foreground mt-1">{stat.value}</p>
               </div>
-              <stat.icon className={`w-5 h-5 ${stat.color}`} />
+              <div className="w-11 h-11 rounded-xl bg-secondary/50 flex items-center justify-center">
+                <stat.icon className={`w-5 h-5 ${stat.color}`} />
+              </div>
             </CardContent>
           </Card>
         ))}
@@ -96,10 +98,10 @@ export default function DashboardPage() {
 
       {/* Bounties */}
       <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-medium text-foreground">Recent Bounties</h2>
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-semibold text-foreground">Recent Bounties</h2>
           <Link href="/dashboard/bounties">
-            <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
+            <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground font-medium">
               View All <ArrowRight className="w-4 h-4 ml-1" />
             </Button>
           </Link>
@@ -178,15 +180,15 @@ export default function DashboardPage() {
       </div>
 
       {/* Quick Action */}
-      <Card className="bg-accent/10 border-accent/20 rounded-xl overflow-hidden">
-        <CardContent className="p-6 flex items-center justify-between gap-4">
+      <Card className="bg-accent/10 border-accent/20 overflow-hidden">
+        <CardContent className="p-6 md:p-7 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <p className="font-medium text-foreground">Ready to fund research?</p>
-            <p className="text-sm text-muted-foreground">Create a bounty and connect with verified labs</p>
+            <p className="font-semibold text-foreground text-base">Ready to fund research?</p>
+            <p className="text-sm text-muted-foreground mt-1">Create a bounty and connect with verified labs</p>
           </div>
-          <CreateBountyModal 
+          <CreateBountyModal
             trigger={
-              <Button className="bg-primary text-primary-foreground hover:bg-primary/90 font-medium rounded-full">
+              <Button className="font-semibold px-6 h-11 shadow-md hover:shadow-lg">
                 Create Bounty
               </Button>
             }
