@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useState, useCallback, useEffect } from "react"
+import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -13,7 +13,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet"
-import { 
+import {
   CreditCard,
   Wallet,
   Lock,
@@ -27,14 +27,33 @@ import {
 } from "lucide-react"
 
 type PaymentMethod = "stripe" | "solana_usdc" | "base_usdc"
-type PaymentStep = "select" | "details" | "processing" | "confirmed"
+type PaymentStep = "select" | "details" | "processing" | "confirmed" | "error"
 
 interface PaymentModalProps {
+  bountyId?: string
   bountyTitle: string
   amount: number
   currency: "USD" | "USDC"
   onComplete?: (result: { method: PaymentMethod; transactionId: string }) => void
   trigger?: React.ReactNode
+}
+
+// Wallet connection utilities
+declare global {
+  interface Window {
+    solana?: {
+      isPhantom?: boolean
+      connect: () => Promise<{ publicKey: { toString: () => string } }>
+      disconnect: () => Promise<void>
+      signTransaction?: (tx: unknown) => Promise<unknown>
+    }
+    ethereum?: {
+      isMetaMask?: boolean
+      request: (args: { method: string; params?: unknown[] }) => Promise<unknown>
+      on: (event: string, callback: (args: unknown) => void) => void
+      removeListener: (event: string, callback: (args: unknown) => void) => void
+    }
+  }
 }
 
 const paymentMethods = [
@@ -67,9 +86,10 @@ const paymentMethods = [
   },
 ]
 
-export function PaymentModal({ 
-  bountyTitle, 
-  amount, 
+export function PaymentModal({
+  bountyId,
+  bountyTitle,
+  amount,
   currency,
   onComplete,
   trigger
@@ -78,44 +98,144 @@ export function PaymentModal({
   const [step, setStep] = useState<PaymentStep>("select")
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [transactionId, setTransactionId] = useState<string | null>(null)
 
-  // Mock card details
+  // Card details for Stripe
   const [cardNumber, setCardNumber] = useState("")
   const [cardExpiry, setCardExpiry] = useState("")
   const [cardCvc, setCardCvc] = useState("")
 
-  // Mock wallet state
+  // Wallet state
   const [walletConnected, setWalletConnected] = useState(false)
-  const walletAddress = "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU"
+  const [walletAddress, setWalletAddress] = useState<string | null>(null)
+
+  // Check for existing wallet connections on mount
+  useEffect(() => {
+    const checkExistingConnections = async () => {
+      // Check Solana (Phantom)
+      if (window.solana?.isPhantom) {
+        try {
+          const resp = await window.solana.connect()
+          if (resp.publicKey) {
+            setWalletAddress(resp.publicKey.toString())
+          }
+        } catch {
+          // User hasn't connected yet, that's fine
+        }
+      }
+    }
+    checkExistingConnections()
+  }, [])
 
   const handleSelectMethod = (method: PaymentMethod) => {
     setSelectedMethod(method)
     setStep("details")
+    setError(null)
+    setWalletConnected(false)
+    setWalletAddress(null)
   }
 
-  const handleConnectWallet = async () => {
-    // Simulate wallet connection
+  const handleConnectWallet = useCallback(async () => {
     setIsProcessing(true)
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    setWalletConnected(true)
-    setIsProcessing(false)
-  }
+    setError(null)
+
+    try {
+      if (selectedMethod === "solana_usdc") {
+        // Connect to Phantom wallet
+        if (!window.solana?.isPhantom) {
+          throw new Error("Phantom wallet not found. Please install it from phantom.app")
+        }
+        const response = await window.solana.connect()
+        setWalletAddress(response.publicKey.toString())
+        setWalletConnected(true)
+      } else if (selectedMethod === "base_usdc") {
+        // Connect to MetaMask or Coinbase Wallet
+        if (!window.ethereum) {
+          throw new Error("No Ethereum wallet found. Please install MetaMask or Coinbase Wallet")
+        }
+        const accounts = await window.ethereum.request({
+          method: "eth_requestAccounts",
+        }) as string[]
+        if (accounts && accounts.length > 0) {
+          setWalletAddress(accounts[0])
+          setWalletConnected(true)
+
+          // Switch to Base network if needed
+          try {
+            await window.ethereum.request({
+              method: "wallet_switchEthereumChain",
+              params: [{ chainId: "0x2105" }], // Base mainnet chain ID
+            })
+          } catch (switchError: unknown) {
+            // Chain not added, try adding it
+            if ((switchError as { code?: number })?.code === 4902) {
+              await window.ethereum.request({
+                method: "wallet_addEthereumChain",
+                params: [{
+                  chainId: "0x2105",
+                  chainName: "Base",
+                  nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
+                  rpcUrls: ["https://mainnet.base.org"],
+                  blockExplorerUrls: ["https://basescan.org"],
+                }],
+              })
+            }
+          }
+        }
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to connect wallet")
+    } finally {
+      setIsProcessing(false)
+    }
+  }, [selectedMethod])
 
   const handleProcessPayment = async () => {
+    if (!selectedMethod) return
+
     setStep("processing")
     setIsProcessing(true)
-    
-    // Simulate payment processing
-    await new Promise(resolve => setTimeout(resolve, 2500))
-    
-    setIsProcessing(false)
-    setStep("confirmed")
-    
-    if (onComplete && selectedMethod) {
-      onComplete({
-        method: selectedMethod,
-        transactionId: `txn_${Date.now()}`,
+    setError(null)
+
+    try {
+      // Call the payment API
+      const response = await fetch("/api/payments/crypto", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bountyId,
+          amount,
+          currency,
+          paymentMethod: selectedMethod,
+          walletAddress,
+          // For Stripe, include card token (in production, use Stripe Elements)
+          ...(selectedMethod === "stripe" && {
+            paymentMethodId: `pm_card_${Date.now()}`, // Would be real Stripe PM ID
+          }),
+        }),
       })
+
+      const result = await response.json()
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "Payment processing failed")
+      }
+
+      setTransactionId(result.transactionId || result.escrowDetails?.stripePaymentIntentId)
+      setStep("confirmed")
+
+      if (onComplete) {
+        onComplete({
+          method: selectedMethod,
+          transactionId: result.transactionId,
+        })
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Payment failed")
+      setStep("error")
+    } finally {
+      setIsProcessing(false)
     }
   }
 
@@ -126,7 +246,15 @@ export function PaymentModal({
       setStep("select")
       setSelectedMethod(null)
       setIsProcessing(false)
+      setError(null)
+      setWalletConnected(false)
+      setWalletAddress(null)
+      setTransactionId(null)
     }, 300)
+  }
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text)
   }
 
   const filteredMethods = paymentMethods.filter(m => 
@@ -247,8 +375,14 @@ export function PaymentModal({
               {/* Solana Wallet */}
               {selectedMethod === "solana_usdc" && (
                 <div className="space-y-4">
+                  {error && (
+                    <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800 text-sm text-red-600 dark:text-red-400 flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                      {error}
+                    </div>
+                  )}
                   {!walletConnected ? (
-                    <Button 
+                    <Button
                       onClick={handleConnectWallet}
                       className="w-full bg-[#9945FF] hover:bg-[#8839e0]"
                       disabled={isProcessing}
@@ -267,18 +401,25 @@ export function PaymentModal({
                           <CheckCircle2 className="w-5 h-5 text-sage-600" />
                           <span className="font-medium text-sage-700 dark:text-sage-400">Wallet Connected</span>
                         </div>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => walletAddress && copyToClipboard(walletAddress)}
+                        >
                           <Copy className="w-4 h-4" />
                         </Button>
                       </div>
-                      <p className="font-mono text-sm text-slate-600 dark:text-slate-400 mt-2">
-                        {walletAddress.slice(0, 12)}...{walletAddress.slice(-8)}
-                      </p>
+                      {walletAddress && (
+                        <p className="font-mono text-sm text-slate-600 dark:text-slate-400 mt-2">
+                          {walletAddress.slice(0, 12)}...{walletAddress.slice(-8)}
+                        </p>
+                      )}
                     </div>
                   )}
                   <div className="flex items-center gap-2 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg text-sm text-muted-foreground">
                     <Lock className="w-4 h-4" />
-                    USDC will be transferred to an escrow PDA. Released to lab upon milestone approval.
+                    USDC will be transferred to escrow. Released to lab upon milestone approval.
                   </div>
                 </div>
               )}
@@ -286,8 +427,14 @@ export function PaymentModal({
               {/* Base Wallet */}
               {selectedMethod === "base_usdc" && (
                 <div className="space-y-4">
+                  {error && (
+                    <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800 text-sm text-red-600 dark:text-red-400 flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                      {error}
+                    </div>
+                  )}
                   {!walletConnected ? (
-                    <Button 
+                    <Button
                       onClick={handleConnectWallet}
                       className="w-full bg-[#0052FF] hover:bg-[#0047e0]"
                       disabled={isProcessing}
@@ -308,14 +455,16 @@ export function PaymentModal({
                         </div>
                         <Badge variant="outline">Base Network</Badge>
                       </div>
-                      <p className="font-mono text-sm text-slate-600 dark:text-slate-400 mt-2">
-                        0x742d35Cc6634C0532925a3b844Bc...
-                      </p>
+                      {walletAddress && (
+                        <p className="font-mono text-sm text-slate-600 dark:text-slate-400 mt-2">
+                          {walletAddress.slice(0, 10)}...{walletAddress.slice(-8)}
+                        </p>
+                      )}
                     </div>
                   )}
                   <div className="flex items-center gap-2 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg text-sm text-muted-foreground">
                     <Lock className="w-4 h-4" />
-                    USDC will be deposited to an escrow smart contract on Base L2.
+                    USDC will be deposited to escrow on Base L2.
                   </div>
                 </div>
               )}
@@ -348,6 +497,29 @@ export function PaymentModal({
             </div>
           )}
 
+          {/* Step: Error */}
+          {step === "error" && (
+            <div className="py-8 text-center">
+              <div className="w-20 h-20 mx-auto bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mb-4">
+                <AlertCircle className="w-10 h-10 text-red-600" />
+              </div>
+              <h3 className="text-xl font-semibold text-navy-800 dark:text-white mb-2">
+                Payment Failed
+              </h3>
+              <p className="text-muted-foreground mb-6">
+                {error || "An error occurred during payment processing"}
+              </p>
+              <div className="flex gap-3">
+                <Button variant="outline" onClick={() => setStep("details")} className="flex-1">
+                  Try Again
+                </Button>
+                <Button variant="outline" onClick={handleClose} className="flex-1">
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* Step: Confirmed */}
           {step === "confirmed" && (
             <div className="py-8 text-center">
@@ -360,7 +532,7 @@ export function PaymentModal({
               <p className="text-muted-foreground mb-6">
                 ${amount.toLocaleString()} {currency} has been secured in escrow
               </p>
-              
+
               <Card className="border-0 bg-slate-50 dark:bg-slate-800 text-left mb-6">
                 <CardContent className="p-4 space-y-2">
                   <div className="flex justify-between text-sm">
@@ -371,10 +543,17 @@ export function PaymentModal({
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Transaction</span>
-                    <span className="font-mono text-xs flex items-center gap-1">
-                      txn_1702...abc123
-                      <ExternalLink className="w-3 h-3" />
-                    </span>
+                    {transactionId ? (
+                      <button
+                        onClick={() => copyToClipboard(transactionId)}
+                        className="font-mono text-xs flex items-center gap-1 hover:text-primary"
+                      >
+                        {transactionId.slice(0, 8)}...{transactionId.slice(-6)}
+                        <Copy className="w-3 h-3" />
+                      </button>
+                    ) : (
+                      <span className="font-mono text-xs">Processing...</span>
+                    )}
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Status</span>
@@ -396,17 +575,20 @@ export function PaymentModal({
 }
 
 // Export a simplified version for quick access
-export function QuickFundButton({ 
-  amount, 
+export function QuickFundButton({
+  bountyId,
+  amount,
   currency = "USDC",
   bountyTitle = "Research Bounty"
-}: { 
+}: {
+  bountyId?: string
   amount: number
   currency?: "USD" | "USDC"
   bountyTitle?: string
 }) {
   return (
-    <PaymentModal 
+    <PaymentModal
+      bountyId={bountyId}
       amount={amount}
       currency={currency}
       bountyTitle={bountyTitle}

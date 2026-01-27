@@ -185,19 +185,27 @@ class StripePaymentProcessor implements PaymentProcessor {
 
 class SolanaPaymentProcessor implements PaymentProcessor {
   private readonly connection: Connection;
-  private readonly escrowProgram: Program;
-  
+  private escrowProgram: Program | null = null;
+
   constructor() {
     // Initialize Solana connection
     this.connection = new Connection(
       process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com'
     );
-    // Initialize escrow program (Anchor)
-    this.escrowProgram = new Program(
-      ESCROW_IDL,
-      ESCROW_PROGRAM_ID,
-      new AnchorProvider(this.connection, {} as any, {})
-    );
+  }
+
+  private getEscrowProgram(): Program {
+    if (!this.escrowProgram) {
+      // Initialize escrow program lazily
+      // In production, use proper wallet/signer setup
+      const provider = new AnchorProvider(
+        this.connection,
+        { publicKey: ESCROW_PROGRAM_ID, signTransaction: async (tx) => tx, signAllTransactions: async (txs) => txs } as any,
+        { commitment: 'confirmed' }
+      );
+      this.escrowProgram = new Program(ESCROW_IDL as any, ESCROW_PROGRAM_ID, provider);
+    }
+    return this.escrowProgram;
   }
 
   async initiate(request: FundBountyRequest): Promise<{ pendingId: string; metadata: Record<string, unknown> }> {
@@ -207,23 +215,23 @@ class SolanaPaymentProcessor implements PaymentProcessor {
      */
     const funderPubkey = new PublicKey(request.solanaWalletAddress!);
     const bountyIdBuffer = Buffer.from(request.bountyId);
-    
+
     // Derive the escrow PDA
-    const [escrowPDA, bump] = await PublicKey.findProgramAddress(
+    const [escrowPDA, bump] = PublicKey.findProgramAddressSync(
       [
         Buffer.from('escrow'),
         bountyIdBuffer,
         funderPubkey.toBuffer(),
       ],
-      this.escrowProgram.programId
+      ESCROW_PROGRAM_ID
     );
 
     // USDC mint on Solana
     const USDC_MINT = new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
-    
-    // Get associated token accounts
-    const funderUsdcAta = getAssociatedTokenAddress(USDC_MINT, funderPubkey);
-    const escrowUsdcAta = getAssociatedTokenAddress(USDC_MINT, escrowPDA, true);
+
+    // Get associated token accounts (async)
+    const funderUsdcAta = await getAssociatedTokenAddress(USDC_MINT, funderPubkey);
+    const escrowUsdcAta = await getAssociatedTokenAddress(USDC_MINT, escrowPDA, true);
 
     return {
       pendingId: escrowPDA.toBase58(),
@@ -244,13 +252,17 @@ class SolanaPaymentProcessor implements PaymentProcessor {
      * Check the on-chain state
      */
     const escrowPDA = new PublicKey(pendingId);
-    
+
     try {
-      const escrowAccount = await this.escrowProgram.account.escrow.fetch(escrowPDA);
-      
+      const program = this.getEscrowProgram();
+      const escrowAccount = await program.account.escrow.fetch(escrowPDA) as {
+        isLocked: boolean;
+        amount: BN;
+      };
+
       // Verify funds are deposited and locked
       const confirmed = escrowAccount.isLocked && escrowAccount.amount.toNumber() > 0;
-      
+
       return {
         confirmed,
         details: {
@@ -266,7 +278,7 @@ class SolanaPaymentProcessor implements PaymentProcessor {
     }
   }
 
-  async refund(escrowDetails: EscrowDetails, amount: number): Promise<{ success: boolean; txId: string }> {
+  async refund(escrowDetails: EscrowDetails, _amount: number): Promise<{ success: boolean; txId: string }> {
     /**
      * Execute refund instruction on the escrow program
      */
@@ -274,14 +286,13 @@ class SolanaPaymentProcessor implements PaymentProcessor {
       throw new PaymentError('INVALID_ESCROW', 'Missing Solana escrow PDA', false);
     }
 
-    // Build refund instruction (would be signed by authorized party)
+    const program = this.getEscrowProgram();
     const escrowPDA = new PublicKey(escrowDetails.solanaEscrowPDA);
-    
-    const tx = await this.escrowProgram.methods
+
+    const tx = await program.methods
       .refund()
       .accounts({
         escrow: escrowPDA,
-        // ... other required accounts
       })
       .rpc();
 
@@ -303,15 +314,15 @@ class SolanaPaymentProcessor implements PaymentProcessor {
       throw new PaymentError('INVALID_ESCROW', 'Missing Solana escrow PDA', false);
     }
 
+    const program = this.getEscrowProgram();
     const escrowPDA = new PublicKey(escrowDetails.solanaEscrowPDA);
     const recipientPubkey = new PublicKey(recipientId);
-    
-    const tx = await this.escrowProgram.methods
+
+    const tx = await program.methods
       .releaseMilestone(new BN(amount * 1_000_000))
       .accounts({
         escrow: escrowPDA,
         recipient: recipientPubkey,
-        // ... other required accounts
       })
       .rpc();
 
@@ -328,17 +339,26 @@ class SolanaPaymentProcessor implements PaymentProcessor {
 
 class BasePaymentProcessor implements PaymentProcessor {
   private readonly provider: ethers.JsonRpcProvider;
-  private readonly escrowFactory: ethers.Contract;
-  
+  private escrowFactory: ethers.Contract | null = null;
+
   constructor() {
     this.provider = new ethers.JsonRpcProvider(
       process.env.BASE_RPC_URL || 'https://mainnet.base.org'
     );
-    this.escrowFactory = new ethers.Contract(
-      ESCROW_FACTORY_ADDRESS,
-      ESCROW_FACTORY_ABI,
-      this.provider
-    );
+  }
+
+  private getEscrowFactory(): ethers.Contract {
+    if (!this.escrowFactory && ESCROW_FACTORY_ADDRESS) {
+      this.escrowFactory = new ethers.Contract(
+        ESCROW_FACTORY_ADDRESS,
+        ESCROW_FACTORY_ABI,
+        this.provider
+      );
+    }
+    if (!this.escrowFactory) {
+      throw new PaymentError('CONFIG_ERROR', 'Escrow factory not configured', false);
+    }
+    return this.escrowFactory;
   }
 
   async initiate(request: FundBountyRequest): Promise<{ pendingId: string; metadata: Record<string, unknown> }> {
@@ -346,18 +366,27 @@ class BasePaymentProcessor implements PaymentProcessor {
      * STEP 1: Compute the escrow contract address (CREATE2)
      * Frontend will deploy and fund in one transaction
      */
+    const abiCoder = ethers.AbiCoder.defaultAbiCoder();
     const salt = ethers.keccak256(
-      ethers.AbiCoder.defaultAbiCoder().encode(
+      abiCoder.encode(
         ['string', 'address'],
         [request.bountyId, request.evmWalletAddress]
       )
     );
-    
-    const escrowAddress = await this.escrowFactory.computeEscrowAddress(
-      salt,
-      request.evmWalletAddress,
-      Math.round(request.amount * 1_000_000) // USDC 6 decimals
-    );
+
+    // If no factory configured, use platform wallet as escrow destination
+    let escrowAddress: string;
+    if (ESCROW_FACTORY_ADDRESS) {
+      const factory = this.getEscrowFactory();
+      escrowAddress = await factory.computeEscrowAddress(
+        salt,
+        request.evmWalletAddress,
+        Math.round(request.amount * 1_000_000) // USDC 6 decimals
+      );
+    } else {
+      // Fallback to platform wallet
+      escrowAddress = process.env.BASE_PLATFORM_WALLET || '';
+    }
 
     return {
       pendingId: escrowAddress,
@@ -366,7 +395,7 @@ class BasePaymentProcessor implements PaymentProcessor {
         salt,
         amount: request.amount,
         usdcAddress: BASE_USDC_ADDRESS,
-        factoryAddress: ESCROW_FACTORY_ADDRESS,
+        factoryAddress: ESCROW_FACTORY_ADDRESS || 'platform_wallet',
       },
     };
   }
@@ -375,13 +404,13 @@ class BasePaymentProcessor implements PaymentProcessor {
     /**
      * STEP 2: Verify the escrow contract exists and is funded
      */
-    const escrowContract = new ethers.Contract(
-      pendingId,
-      ESCROW_ABI,
-      this.provider
-    );
-
     try {
+      const escrowContract = new ethers.Contract(
+        pendingId,
+        ESCROW_ABI,
+        this.provider
+      );
+
       const [isLocked, amount] = await Promise.all([
         escrowContract.isLocked(),
         escrowContract.totalAmount(),
@@ -404,13 +433,17 @@ class BasePaymentProcessor implements PaymentProcessor {
     }
   }
 
-  async refund(escrowDetails: EscrowDetails, amount: number): Promise<{ success: boolean; txId: string }> {
+  async refund(escrowDetails: EscrowDetails, _amount: number): Promise<{ success: boolean; txId: string }> {
     if (!escrowDetails.baseContractAddress) {
       throw new PaymentError('INVALID_ESCROW', 'Missing Base escrow address', false);
     }
 
-    // This would be called by the authorized party (admin/arbitrator)
-    const signer = new ethers.Wallet(process.env.ADMIN_PRIVATE_KEY!, this.provider);
+    const privateKey = process.env.BASE_PLATFORM_WALLET_PRIVATE_KEY;
+    if (!privateKey) {
+      throw new PaymentError('CONFIG_ERROR', 'Platform wallet private key not configured', false);
+    }
+
+    const signer = new ethers.Wallet(privateKey, this.provider);
     const escrowContract = new ethers.Contract(
       escrowDetails.baseContractAddress,
       ESCROW_ABI,
@@ -421,8 +454,8 @@ class BasePaymentProcessor implements PaymentProcessor {
     const receipt = await tx.wait();
 
     return {
-      success: receipt.status === 1,
-      txId: receipt.hash,
+      success: receipt?.status === 1,
+      txId: receipt?.hash || tx.hash,
     };
   }
 
@@ -435,7 +468,12 @@ class BasePaymentProcessor implements PaymentProcessor {
       throw new PaymentError('INVALID_ESCROW', 'Missing Base escrow address', false);
     }
 
-    const signer = new ethers.Wallet(process.env.ADMIN_PRIVATE_KEY!, this.provider);
+    const privateKey = process.env.BASE_PLATFORM_WALLET_PRIVATE_KEY;
+    if (!privateKey) {
+      throw new PaymentError('CONFIG_ERROR', 'Platform wallet private key not configured', false);
+    }
+
+    const signer = new ethers.Wallet(privateKey, this.provider);
     const escrowContract = new ethers.Contract(
       escrowDetails.baseContractAddress,
       ESCROW_ABI,
@@ -449,8 +487,8 @@ class BasePaymentProcessor implements PaymentProcessor {
     const receipt = await tx.wait();
 
     return {
-      success: receipt.status === 1,
-      txId: receipt.hash,
+      success: receipt?.status === 1,
+      txId: receipt?.hash || tx.hash,
     };
   }
 }
@@ -682,86 +720,62 @@ class PaymentError extends Error {
 // Note: These imports require the packages to be installed:
 // - stripe
 // - @solana/web3.js
+// - @solana/spl-token
+// - @coral-xyz/anchor
 // - ethers
 
-// Import types - actual instances are created lazily
-import type Stripe from 'stripe'
-import type { Connection, PublicKey as SolanaPublicKey } from '@solana/web3.js'
-import type { ethers as EthersNamespace } from 'ethers'
+// Stripe SDK
+import Stripe from 'stripe'
 
-// Re-export types for use in the file
-type PublicKey = SolanaPublicKey
+// Solana SDK
+import { Connection, PublicKey } from '@solana/web3.js'
+import { getAssociatedTokenAddress } from '@solana/spl-token'
+import { Program, AnchorProvider, BN } from '@coral-xyz/anchor'
 
-// BN type for Anchor/Solana
-interface BN {
-  toNumber(): number
+// Ethers SDK
+import { ethers } from 'ethers'
+
+// Escrow program configuration - load from environment
+const ESCROW_PROGRAM_ID = new PublicKey(
+  process.env.SOLANA_ESCROW_PROGRAM_ID || '11111111111111111111111111111111' // System program as fallback
+)
+
+// Escrow IDL - in production, import the actual IDL from your escrow program
+// This is a minimal interface for the escrow program
+interface EscrowIDL {
+  version: string
+  name: string
+  instructions: unknown[]
+  accounts: unknown[]
 }
 
-// Program type for Anchor
-interface Program {
-  programId: PublicKey
-  account: { escrow: { fetch(key: PublicKey): Promise<EscrowAccount> } }
-  methods: ProgramMethods
+const ESCROW_IDL: EscrowIDL = {
+  version: '0.1.0',
+  name: 'sciflow_escrow',
+  instructions: [],
+  accounts: [],
 }
-
-interface EscrowAccount {
-  isLocked: boolean
-  amount: BN
-}
-
-interface ProgramMethods {
-  refund(): MethodBuilder
-  releaseMilestone(amount: BN): MethodBuilder
-}
-
-interface MethodBuilder {
-  accounts(accts: Record<string, unknown>): { rpc(): Promise<string> }
-}
-
-// AnchorProvider type
-interface AnchorProvider {
-  connection: Connection
-}
-
-// Helper function type
-type GetAssociatedTokenAddress = (mint: PublicKey, owner: PublicKey, allowOwnerOffCurve?: boolean) => PublicKey
-
-// Placeholder - in production, load from your escrow program's IDL
-const ESCROW_IDL: Record<string, unknown> = {}
-const ESCROW_PROGRAM_ID = process.env.SOLANA_ESCROW_PROGRAM_ID || ''
 
 // EVM contract addresses and ABIs
 const ESCROW_FACTORY_ADDRESS = process.env.BASE_ESCROW_FACTORY || ''
-const ESCROW_FACTORY_ABI: EthersNamespace.InterfaceAbi = []
-const ESCROW_ABI: EthersNamespace.InterfaceAbi = []
+
+// Escrow Factory ABI - deploy your own or use a standard escrow pattern
+const ESCROW_FACTORY_ABI = [
+  'function computeEscrowAddress(bytes32 salt, address funder, uint256 amount) view returns (address)',
+  'function createEscrow(bytes32 salt, address funder, uint256 amount) returns (address)',
+]
+
+// Escrow Contract ABI
+const ESCROW_ABI = [
+  'function isLocked() view returns (bool)',
+  'function totalAmount() view returns (uint256)',
+  'function refund() returns (bool)',
+  'function releaseMilestone(address recipient, uint256 amount) returns (bool)',
+  'event Released(address indexed recipient, uint256 amount)',
+  'event Refunded(address indexed funder, uint256 amount)',
+]
+
 const BASE_USDC_ADDRESS = process.env.BASE_USDC_ADDRESS || '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'
-
-// Namespace for ethers types used in this file
-namespace ethers {
-  export type JsonRpcProvider = EthersNamespace.JsonRpcProvider
-  export type Contract = EthersNamespace.Contract
-  export type Wallet = EthersNamespace.Wallet
-  export const keccak256 = (data: string): string => {
-    // Dynamically import to avoid issues if ethers not installed
-    return data // Placeholder - actual implementation uses ethers.keccak256
-  }
-  export class AbiCoder {
-    static defaultAbiCoder() {
-      return {
-        encode: (types: string[], values: unknown[]): string => {
-          return '' // Placeholder - actual implementation uses ethers.AbiCoder
-        }
-      }
-    }
-  }
-}
-
-// Helper to get associated token address (SPL Token)
-const getAssociatedTokenAddress: GetAssociatedTokenAddress = (mint, owner, allowOwnerOffCurve) => {
-  // In production, import from @solana/spl-token
-  // For now, return a placeholder that will be replaced at runtime
-  return mint // Placeholder
-}
 
 // ============================================================================
 // Export Singleton
