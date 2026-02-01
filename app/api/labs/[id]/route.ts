@@ -18,8 +18,7 @@ export async function GET(
         user:users!labs_user_id_fkey(id, full_name, avatar_url, email),
         completed_bounties:bounties!bounties_selected_lab_id_fkey(
           id, title, total_budget, currency, state, created_at
-        ),
-        staking:staking_pool(staked_amount, staked_at, unlock_date)
+        )
       `)
       .eq('id', id)
       .single()
