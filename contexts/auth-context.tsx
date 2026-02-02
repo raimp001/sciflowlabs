@@ -10,6 +10,7 @@ interface AuthContextType {
   session: Session | null
   dbUser: DbUser | null
   lab: Lab | null
+  walletAddress: string | null
   isLoading: boolean
   isAuthenticated: boolean
   isFunder: boolean
@@ -209,11 +210,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLab(null)
   }
 
+  // Derive wallet address from user profile
+  const walletAddress = dbUser?.wallet_address_evm || dbUser?.wallet_address_solana || null
+
   const value: AuthContextType = {
     user,
     session,
     dbUser,
     lab,
+    walletAddress,
     isLoading,
     isAuthenticated: !!user,
     isFunder: dbUser?.role === 'funder',

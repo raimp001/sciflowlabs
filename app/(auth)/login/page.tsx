@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Mail, Wallet, AlertCircle, Loader2 } from 'lucide-react'
 import { useAuth } from '@/contexts/auth-context'
+import { SmartWalletAuth } from '@/components/smart-wallet-auth'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -120,6 +121,24 @@ export default function LoginPage() {
               {error}
             </div>
           )}
+
+          {/* Primary: One-tap Smart Wallet auth */}
+          <SmartWalletAuth
+            mode="login"
+            onSuccess={() => router.push('/dashboard')}
+            onError={(err) => setError(err)}
+          />
+
+          <div className="relative my-5">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-border" />
+            </div>
+            <div className="relative flex justify-center text-xs">
+              <span className="bg-card px-3 text-muted-foreground">
+                or continue with
+              </span>
+            </div>
+          </div>
 
           <Tabs defaultValue="email" className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-6 bg-secondary">

@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { AlertCircle, Loader2, Building, Microscope, CheckCircle2 } from 'lucide-react'
 import { useAuth } from '@/contexts/auth-context'
+import { SmartWalletAuth } from '@/components/smart-wallet-auth'
 
 export default function SignupPage() {
   const router = useRouter()
@@ -177,12 +178,28 @@ export default function SignupPage() {
                 </RadioGroup>
               </div>
 
-              <Button 
+              <Button
                 onClick={() => setStep(2)}
                 className="w-full bg-primary text-primary-foreground hover:bg-primary/90 rounded-full"
               >
-                Continue
+                Continue with Email
               </Button>
+
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-border" />
+                </div>
+                <div className="relative flex justify-center text-xs">
+                  <span className="bg-card px-3 text-muted-foreground">or</span>
+                </div>
+              </div>
+
+              <SmartWalletAuth
+                mode="signup"
+                role={role}
+                onSuccess={() => router.push('/dashboard')}
+                onError={(err) => setError(err)}
+              />
             </div>
           ) : (
             <form onSubmit={handleSignup} className="space-y-4">
