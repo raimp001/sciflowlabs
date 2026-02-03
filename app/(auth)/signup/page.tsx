@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -8,13 +8,13 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { AlertCircle, Loader2, Building, Microscope, CheckCircle2 } from 'lucide-react'
+import { AlertCircle, Loader2, Building, Microscope, CheckCircle2, LogIn } from 'lucide-react'
 import { useAuth } from '@/contexts/auth-context'
 
 export default function SignupPage() {
   const router = useRouter()
-  const { signUpWithEmail } = useAuth()
-  
+  const { login, isAuthenticated, privyReady, signUpWithEmail } = useAuth()
+
   const [step, setStep] = useState(1)
   const [role, setRole] = useState<'funder' | 'lab'>('funder')
   const [fullName, setFullName] = useState('')
@@ -25,6 +25,13 @@ export default function SignupPage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
 
+  // Redirect if already authenticated via Privy
+  useEffect(() => {
+    if (privyReady && isAuthenticated) {
+      router.push('/dashboard')
+    }
+  }, [privyReady, isAuthenticated, router])
+
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
@@ -33,16 +40,14 @@ export default function SignupPage() {
       setError('Passwords do not match')
       return
     }
-
     if (password.length < 8) {
       setError('Password must be at least 8 characters')
       return
     }
 
     setIsLoading(true)
-
     const { error } = await signUpWithEmail(email, password, fullName, role)
-    
+
     if (error) {
       setError(error.message)
       setIsLoading(false)
@@ -72,8 +77,8 @@ export default function SignupPage() {
             <p className="text-sm text-muted-foreground mb-6">
               Click the link in your email to verify your account and complete registration.
             </p>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => router.push('/login')}
               className="w-full border-border text-foreground hover:bg-secondary rounded-full"
             >
@@ -91,11 +96,11 @@ export default function SignupPage() {
         <CardHeader className="text-center pb-2">
           <div className="flex justify-center mb-4">
             <svg viewBox="0 0 24 24" fill="none" className="w-12 h-12">
-              <path 
-                d="M9 3V11L5 19C4.5 20 5 21 6 21H18C19 21 19.5 20 19 19L15 11V3" 
+              <path
+                d="M9 3V11L5 19C4.5 20 5 21 6 21H18C19 21 19.5 20 19 19L15 11V3"
                 stroke="hsl(20, 70%, 55%)"
-                strokeWidth="1.5" 
-                strokeLinecap="round" 
+                strokeWidth="1.5"
+                strokeLinecap="round"
                 strokeLinejoin="round"
               />
               <path d="M9 3H15" stroke="hsl(20, 70%, 55%)" strokeWidth="1.5" strokeLinecap="round" />
@@ -130,16 +135,16 @@ export default function SignupPage() {
             <div className="space-y-6">
               <div>
                 <Label className="text-base font-medium mb-4 block text-foreground">I want to...</Label>
-                <RadioGroup 
-                  value={role} 
+                <RadioGroup
+                  value={role}
                   onValueChange={(v) => setRole(v as 'funder' | 'lab')}
                   className="grid grid-cols-2 gap-4"
                 >
                   <Label
                     htmlFor="funder"
                     className={`flex flex-col items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                      role === 'funder' 
-                        ? 'border-accent bg-accent/10' 
+                      role === 'funder'
+                        ? 'border-accent bg-accent/10'
                         : 'border-border hover:border-accent/50'
                     }`}
                   >
@@ -158,8 +163,8 @@ export default function SignupPage() {
                   <Label
                     htmlFor="lab"
                     className={`flex flex-col items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                      role === 'lab' 
-                        ? 'border-emerald-500 bg-emerald-500/10' 
+                      role === 'lab'
+                        ? 'border-emerald-500 bg-emerald-500/10'
                         : 'border-border hover:border-emerald-500/50'
                     }`}
                   >
@@ -177,11 +182,34 @@ export default function SignupPage() {
                 </RadioGroup>
               </div>
 
-              <Button 
-                onClick={() => setStep(2)}
-                className="w-full bg-primary text-primary-foreground hover:bg-primary/90 rounded-full"
+              {/* Primary: Privy sign-up (wallet, email, social, passkey) */}
+              <Button
+                onClick={() => login()}
+                className="w-full h-14 bg-primary text-primary-foreground hover:bg-primary/90 rounded-full text-base font-medium"
               >
-                Continue
+                <LogIn className="w-5 h-5 mr-2" />
+                Get Started
+              </Button>
+
+              <p className="text-xs text-center text-muted-foreground">
+                Sign up with wallet, email, Google, or passkey
+              </p>
+
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-border" />
+                </div>
+                <div className="relative flex justify-center text-xs">
+                  <span className="bg-card px-3 text-muted-foreground">or</span>
+                </div>
+              </div>
+
+              <Button
+                variant="outline"
+                onClick={() => setStep(2)}
+                className="w-full border-border text-foreground hover:bg-secondary rounded-full"
+              >
+                Continue with Email & Password
               </Button>
             </div>
           ) : (
@@ -228,9 +256,7 @@ export default function SignupPage() {
                   disabled={isLoading}
                   className="bg-secondary border-border text-foreground"
                 />
-                <p className="text-xs text-muted-foreground">
-                  Must be at least 8 characters
-                </p>
+                <p className="text-xs text-muted-foreground">Must be at least 8 characters</p>
               </div>
 
               <div className="space-y-2">
@@ -248,7 +274,7 @@ export default function SignupPage() {
               </div>
 
               <div className="flex gap-3">
-                <Button 
+                <Button
                   type="button"
                   variant="outline"
                   onClick={() => setStep(1)}
@@ -257,8 +283,8 @@ export default function SignupPage() {
                 >
                   Back
                 </Button>
-                <Button 
-                  type="submit" 
+                <Button
+                  type="submit"
                   className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 rounded-full"
                   disabled={isLoading}
                 >

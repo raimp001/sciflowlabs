@@ -32,6 +32,8 @@ import {
   AlertTriangle,
 } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
+import { LabCredentialsAttestation } from "@/components/lab-credentials-attestation"
+import { ConnectedWalletCard } from "@/components/base-identity"
 import Link from "next/link"
 
 export default function ProfilePage() {
@@ -333,28 +335,7 @@ export default function ProfilePage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {formData.walletAddress ? (
-            <div className="flex items-center justify-between p-3 bg-secondary rounded-lg">
-              <div>
-                <p className="font-mono text-sm text-foreground">
-                  {formData.walletAddress.slice(0, 6)}...{formData.walletAddress.slice(-4)}
-                </p>
-                <p className="text-xs text-muted-foreground">Solana</p>
-              </div>
-              <Badge className="bg-emerald-100 text-emerald-700 border-0">
-                <CheckCircle className="w-3 h-3 mr-1" />
-                Connected
-              </Badge>
-            </div>
-          ) : (
-            <div className="text-center py-4">
-              <Wallet className="w-10 h-10 mx-auto text-muted-foreground mb-3" />
-              <p className="text-muted-foreground mb-4">No wallet connected</p>
-              <Button variant="outline" className="border-border text-foreground hover:bg-secondary">
-                Connect Wallet
-              </Button>
-            </div>
-          )}
+          <ConnectedWalletCard />
         </CardContent>
       </Card>
 
@@ -408,6 +389,11 @@ export default function ProfilePage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* On-Chain Credentials (for labs) */}
+      {formData.role !== "funder" && (
+        <LabCredentialsAttestation />
+      )}
 
       {/* Stats Summary */}
       <Card className="border-border bg-card">
