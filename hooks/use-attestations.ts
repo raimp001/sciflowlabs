@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useCallback } from 'react'
-import { useAccount, useWriteContract, useReadContract, useWaitForTransactionReceipt } from 'wagmi'
-import { base } from 'wagmi/chains'
+import { useState, useCallback, useMemo } from 'react'
+import { useAccount, useWriteContract, useChainId } from 'wagmi'
+import { base, baseSepolia } from 'wagmi/chains'
 import {
   EAS_CONTRACTS,
   EAS_ABI,
@@ -18,18 +18,46 @@ import {
 const ZERO_BYTES32 = '0x0000000000000000000000000000000000000000000000000000000000000000' as `0x${string}`
 
 /**
- * Hook for creating and reading EAS attestations on Base.
+ * Get the current network config
+ */
+function getNetworkConfig() {
+  const envNetwork = process.env.NEXT_PUBLIC_BASE_NETWORK || 'base-sepolia'
+  const isTestnet = envNetwork === 'base-sepolia' || envNetwork === 'sepolia'
+  return {
+    network: isTestnet ? 'baseSepolia' : 'base' as const,
+    chainId: isTestnet ? baseSepolia.id : base.id,
+    isTestnet,
+  }
+}
+
+/**
+ * Hook for creating and reading EAS attestations on Base/Base Sepolia.
+ *
+ * Automatically uses the correct network based on NEXT_PUBLIC_BASE_NETWORK env var.
+ * Defaults to Base Sepolia for testing.
  *
  * Usage:
- *   const { attestCredential, attestResearch, getAttestation, isAttesting } = useAttestations()
+ *   const { attestCredential, attestResearch, getAttestation, isAttesting, network } = useAttestations()
  *   await attestCredential({ credentialType: 'degree', institution: 'MIT', ... })
  */
 export function useAttestations() {
   const { address, isConnected } = useAccount()
+  const connectedChainId = useChainId()
   const [isAttesting, setIsAttesting] = useState(false)
   const [lastResult, setLastResult] = useState<AttestationResult | null>(null)
 
   const { writeContractAsync } = useWriteContract()
+
+  // Determine which network to use
+  const networkConfig = useMemo(() => getNetworkConfig(), [])
+  const network = networkConfig.network
+  const targetChainId = networkConfig.chainId
+
+  // Get the EAS contract for the current network
+  const easContract = EAS_CONTRACTS[network].eas
+
+  // Check if user is on the correct chain
+  const isCorrectChain = connectedChainId === targetChainId
 
   /**
    * Create a lab credential attestation on-chain
@@ -42,6 +70,13 @@ export function useAttestations() {
       return { success: false, error: 'Wallet not connected' }
     }
 
+    if (!isCorrectChain) {
+      return {
+        success: false,
+        error: `Please switch to ${network === 'baseSepolia' ? 'Base Sepolia' : 'Base'} network`,
+      }
+    }
+
     if (!SCHEMA_UIDS.labCredential) {
       return { success: false, error: 'Lab credential schema not configured. Set NEXT_PUBLIC_EAS_SCHEMA_LAB_CREDENTIAL.' }
     }
@@ -51,7 +86,7 @@ export function useAttestations() {
       const encodedData = encodeLabCredential(credential)
 
       const txHash = await writeContractAsync({
-        address: EAS_CONTRACTS.base.eas,
+        address: easContract,
         abi: EAS_ABI,
         functionName: 'attest',
         args: [{
@@ -65,7 +100,7 @@ export function useAttestations() {
             value: 0n,
           },
         }],
-        chainId: base.id,
+        chainId: targetChainId,
       })
 
       const result: AttestationResult = {
@@ -85,7 +120,7 @@ export function useAttestations() {
     } finally {
       setIsAttesting(false)
     }
-  }, [isConnected, address, writeContractAsync])
+  }, [isConnected, address, isCorrectChain, network, easContract, targetChainId, writeContractAsync])
 
   /**
    * Create a research record attestation on-chain
@@ -98,6 +133,13 @@ export function useAttestations() {
       return { success: false, error: 'Wallet not connected' }
     }
 
+    if (!isCorrectChain) {
+      return {
+        success: false,
+        error: `Please switch to ${network === 'baseSepolia' ? 'Base Sepolia' : 'Base'} network`,
+      }
+    }
+
     if (!SCHEMA_UIDS.researchRecord) {
       return { success: false, error: 'Research record schema not configured. Set NEXT_PUBLIC_EAS_SCHEMA_RESEARCH_RECORD.' }
     }
@@ -107,7 +149,7 @@ export function useAttestations() {
       const encodedData = encodeResearchRecord(record)
 
       const txHash = await writeContractAsync({
-        address: EAS_CONTRACTS.base.eas,
+        address: easContract,
         abi: EAS_ABI,
         functionName: 'attest',
         args: [{
@@ -121,7 +163,7 @@ export function useAttestations() {
             value: 0n,
           },
         }],
-        chainId: base.id,
+        chainId: targetChainId,
       })
 
       const result: AttestationResult = {
@@ -141,18 +183,17 @@ export function useAttestations() {
     } finally {
       setIsAttesting(false)
     }
-  }, [isConnected, address, writeContractAsync])
+  }, [isConnected, address, isCorrectChain, network, easContract, targetChainId, writeContractAsync])
 
   /**
    * Read an attestation by UID
    */
   const getAttestation = useCallback(async (uid: `0x${string}`) => {
-    // This would use useReadContract but we return a URL for now
     return {
       uid,
-      url: getAttestationUrl(uid),
+      url: getAttestationUrl(uid, network),
     }
-  }, [])
+  }, [network])
 
   return {
     attestCredential,
@@ -161,6 +202,10 @@ export function useAttestations() {
     isAttesting,
     lastResult,
     isConnected,
+    isCorrectChain,
     walletAddress: address,
+    network,
+    chainId: targetChainId,
+    isTestnet: networkConfig.isTestnet,
   }
 }
