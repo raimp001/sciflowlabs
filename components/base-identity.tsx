@@ -1,13 +1,11 @@
 "use client"
 
-import { useAccount, useEnsName, useEnsAvatar } from 'wagmi'
-import { base } from 'wagmi/chains'
+import { useAuth } from '@/contexts/auth-context'
 import { Badge } from '@/components/ui/badge'
 import { Wallet, CheckCircle2 } from 'lucide-react'
 
 interface BaseIdentityProps {
-  address?: `0x${string}`
-  showAvatar?: boolean
+  address?: string
   compact?: boolean
 }
 
@@ -15,13 +13,11 @@ function formatAddress(address: string): string {
   return `${address.slice(0, 6)}...${address.slice(-4)}`
 }
 
-export function BaseIdentity({ address: propAddress, showAvatar = true, compact = false }: BaseIdentityProps) {
-  const { address: connectedAddress, isConnected } = useAccount()
-  const address = propAddress || connectedAddress
+export function BaseIdentity({ address: propAddress, compact = false }: BaseIdentityProps) {
+  const { walletAddress, isAuthenticated } = useAuth()
+  const address = propAddress || walletAddress
 
-  if (!address) {
-    return null
-  }
+  if (!address) return null
 
   if (compact) {
     return (
@@ -47,7 +43,7 @@ export function BaseIdentity({ address: propAddress, showAvatar = true, compact 
         </p>
         <p className="text-xs text-muted-foreground">Base Network</p>
       </div>
-      {isConnected && address === connectedAddress && (
+      {isAuthenticated && (
         <Badge className="bg-emerald-500/10 text-emerald-500 border-0 text-xs">
           <CheckCircle2 className="w-3 h-3 mr-1" />
           Connected
@@ -58,16 +54,19 @@ export function BaseIdentity({ address: propAddress, showAvatar = true, compact 
 }
 
 export function ConnectedWalletCard() {
-  const { address, isConnected } = useAccount()
+  const { walletAddress, isAuthenticated } = useAuth()
 
-  if (!isConnected || !address) {
+  if (!isAuthenticated || !walletAddress) {
     return (
       <div className="text-center py-4">
         <Wallet className="w-10 h-10 mx-auto text-muted-foreground mb-3" />
-        <p className="text-sm text-muted-foreground">No Base wallet connected</p>
+        <p className="text-sm text-muted-foreground">No wallet connected</p>
+        <p className="text-xs text-muted-foreground mt-1">
+          Sign in to connect or create a wallet
+        </p>
       </div>
     )
   }
 
-  return <BaseIdentity address={address} />
+  return <BaseIdentity address={walletAddress} />
 }

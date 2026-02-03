@@ -1,0 +1,18 @@
+{
+  "accountAssociation": {
+    "header": "",
+    "payload": "",
+    "signature": ""
+  },
+  "frame": {
+    "version": "1",
+    "name": "SciFlow",
+    "iconUrl": "https://sciflowlabs.com/icon.png",
+    "homeUrl": "https://sciflowlabs.com",
+    "imageUrl": "https://sciflowlabs.com/og-image.png",
+    "buttonTitle": "Open SciFlow",
+    "splashImageUrl": "https://sciflowlabs.com/icon.png",
+    "splashBackgroundColor": "#0a0a0b",
+    "webhookUrl": "https://sciflowlabs.com/api/webhooks/frame"
+  }
+}

@@ -4,13 +4,11 @@ import { type ReactNode } from 'react'
 import { ThemeProvider } from '@/components/theme-provider'
 import { AuthProvider } from '@/contexts/auth-context'
 import { Toaster } from 'sonner'
-import { OnchainKitProvider } from '@coinbase/onchainkit'
+import { PrivyProvider } from '@privy-io/react-auth'
+import { WagmiProvider } from '@privy-io/wagmi'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { WagmiProvider } from 'wagmi'
-import { base } from 'wagmi/chains'
+import { base, baseSepolia } from 'viem/chains'
 import { wagmiConfig } from '@/lib/wagmi'
-
-import '@coinbase/onchainkit/styles.css'
 
 const queryClient = new QueryClient()
 
@@ -19,6 +17,8 @@ interface ProvidersProps {
 }
 
 export function Providers({ children }: ProvidersProps) {
+  const appId = process.env.NEXT_PUBLIC_PRIVY_APP_ID || ''
+
   return (
     <ThemeProvider
       attribute="class"
@@ -26,34 +26,51 @@ export function Providers({ children }: ProvidersProps) {
       enableSystem={false}
       disableTransitionOnChange
     >
-      <WagmiProvider config={wagmiConfig}>
+      <PrivyProvider
+        appId={appId}
+        config={{
+          appearance: {
+            theme: 'dark',
+            accentColor: '#c2632a',
+            logo: 'https://sciflowlabs.com/icon.png',
+            landingHeader: 'Sign in to SciFlow',
+            loginMessage: 'Fund and conduct decentralized research',
+          },
+          loginMethods: ['email', 'wallet', 'google', 'passkey'],
+          defaultChain: base,
+          supportedChains: [base, baseSepolia],
+          embeddedWallets: {
+            createOnLogin: 'users-without-wallets',
+          },
+          externalWallets: {
+            coinbaseWallet: {
+              connectionOptions: 'smartWalletOnly',
+            },
+          },
+          // Mini app / frame support
+          fundingMethodConfig: {
+            moonpay: { useSandbox: true },
+          },
+        }}
+      >
         <QueryClientProvider client={queryClient}>
-          <OnchainKitProvider
-            apiKey={process.env.NEXT_PUBLIC_ONCHAINKIT_API_KEY}
-            chain={base}
-            config={{
-              appearance: {
-                mode: 'auto',
-                theme: 'default',
+        <WagmiProvider config={wagmiConfig}>
+        <AuthProvider>
+          {children}
+          <Toaster
+            position="bottom-right"
+            toastOptions={{
+              style: {
+                background: 'hsl(var(--background))',
+                color: 'hsl(var(--foreground))',
+                border: '1px solid hsl(var(--border))',
               },
             }}
-          >
-            <AuthProvider>
-              {children}
-              <Toaster
-                position="bottom-right"
-                toastOptions={{
-                  style: {
-                    background: 'hsl(var(--background))',
-                    color: 'hsl(var(--foreground))',
-                    border: '1px solid hsl(var(--border))',
-                  },
-                }}
-              />
-            </AuthProvider>
-          </OnchainKitProvider>
+          />
+        </AuthProvider>
+        </WagmiProvider>
         </QueryClientProvider>
-      </WagmiProvider>
+      </PrivyProvider>
     </ThemeProvider>
   )
 }
