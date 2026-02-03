@@ -7,12 +7,14 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
-import { Mail, Wallet, AlertCircle, Loader2, LogIn } from 'lucide-react'
+import { Mail, AlertCircle, Loader2, LogIn, CheckCircle2 } from 'lucide-react'
 import { useAuth } from '@/contexts/auth-context'
+import { useFrameContext } from '@/components/providers'
 
 export default function LoginPage() {
   const router = useRouter()
   const { login, isAuthenticated, privyReady, signInWithEmail } = useAuth()
+  const { isInFrame, frameUser, walletAddress } = useFrameContext()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -26,6 +28,66 @@ export default function LoginPage() {
       router.push('/dashboard')
     }
   }, [privyReady, isAuthenticated, router])
+
+  // Show connecting state in frame
+  if (isInFrame && !isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md border-border bg-card">
+          <CardContent className="pt-8 pb-8 text-center">
+            {frameUser ? (
+              <>
+                {/* Show frame user info */}
+                <div className="mb-6">
+                  {frameUser.pfpUrl ? (
+                    <img
+                      src={frameUser.pfpUrl}
+                      alt={frameUser.displayName || 'Profile'}
+                      className="w-20 h-20 rounded-full mx-auto mb-4 border-2 border-primary"
+                    />
+                  ) : (
+                    <div className="w-20 h-20 rounded-full mx-auto mb-4 bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-2xl font-bold">
+                      {(frameUser.displayName || frameUser.username || 'U')[0].toUpperCase()}
+                    </div>
+                  )}
+                  <h2 className="text-xl font-semibold text-foreground">
+                    {frameUser.displayName || frameUser.username || 'Welcome'}
+                  </h2>
+                  {frameUser.username && (
+                    <p className="text-sm text-muted-foreground">@{frameUser.username}</p>
+                  )}
+                </div>
+
+                {walletAddress ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-center gap-2 text-emerald-500">
+                      <CheckCircle2 className="w-5 h-5" />
+                      <span className="text-sm">Wallet Connected</span>
+                    </div>
+                    <p className="font-mono text-xs text-muted-foreground">
+                      {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
+                    </p>
+                    <Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" />
+                    <p className="text-sm text-muted-foreground">Signing you in...</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" />
+                    <p className="text-sm text-muted-foreground">Connecting wallet...</p>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="space-y-4">
+                <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" />
+                <p className="text-sm text-muted-foreground">Loading...</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault()
