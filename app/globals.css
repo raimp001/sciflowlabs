@@ -64,8 +64,12 @@ html {
     --input: 0 0% 18%;
     --ring: 40 20% 95%;
 
-    /* Border radius - rounded like Claude */
-    --radius: 0.75rem;
+    /* Border radius - softer, more modern curves */
+    --radius: 1rem; /* 16px - softer curves */
+    --radius-sm: 0.625rem; /* 10px */
+    --radius-md: 0.875rem; /* 14px */
+    --radius-lg: 1.25rem; /* 20px */
+    --radius-xl: 1.5rem; /* 24px - for large cards */
 
     /* Chart colors */
     --chart-1: 20 70% 55%;
@@ -191,15 +195,31 @@ html {
     @apply hover:bg-secondary transition-colors;
   }
 
-  /* Card with subtle border */
+  /* Card with subtle border - updated with softer radius */
   .card-subtle {
-    @apply bg-card border border-border rounded-xl;
+    @apply bg-card border border-border p-6;
+    border-radius: var(--radius-lg);
   }
 
-  /* Feature card with hover effect */
+  /* Feature card with hover effect - larger, more prominent */
   .feature-card {
-    @apply bg-card border border-border rounded-2xl p-8;
-    @apply hover:border-accent/50 transition-colors duration-300;
+    @apply bg-card border border-border p-8;
+    border-radius: var(--radius-xl);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    @apply hover:border-accent/40 hover:shadow-lg transition-all duration-300;
+  }
+
+  /* Standard content card */
+  .content-card {
+    @apply bg-card border border-border p-6;
+    border-radius: var(--radius-lg);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  }
+
+  /* Stat/metric card - compact */
+  .stat-card {
+    @apply bg-card border border-border p-5;
+    border-radius: var(--radius-md);
   }
 
   /* Status badges */

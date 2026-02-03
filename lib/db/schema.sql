@@ -106,6 +106,52 @@ CREATE INDEX idx_users_solana_wallet ON users(solana_wallet);
 CREATE INDEX idx_users_evm_wallet ON users(evm_wallet);
 
 -- ============================================================================
+-- TABLE: Labs (Lab Profiles)
+-- ============================================================================
+
+CREATE TABLE labs (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE UNIQUE,
+
+  -- Basic info
+  name TEXT NOT NULL,
+  description TEXT,
+  website TEXT,
+  location_country TEXT,
+
+  -- Verification
+  verification_tier lab_verification_tier DEFAULT 'unverified',
+  verification_documents JSONB,
+
+  -- Reputation
+  reputation_score DECIMAL(5,2) DEFAULT 0,
+  total_bounties_completed INTEGER DEFAULT 0,
+  total_earnings DECIMAL(20,6) DEFAULT 0,
+
+  -- Staking
+  staking_balance DECIMAL(20,6) DEFAULT 0,
+  locked_stake DECIMAL(20,6) DEFAULT 0,
+
+  -- Team & Capabilities
+  specializations TEXT[] DEFAULT '{}',
+  equipment JSONB DEFAULT '[]',
+  publications JSONB DEFAULT '[]',
+  team_size INTEGER,
+  institution_affiliation TEXT,
+
+  -- Expertise areas (searchable)
+  expertise_areas TEXT[] DEFAULT '{}',
+
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_labs_user ON labs(user_id);
+CREATE INDEX idx_labs_tier ON labs(verification_tier);
+CREATE INDEX idx_labs_reputation ON labs(reputation_score DESC);
+CREATE INDEX idx_labs_specializations ON labs USING GIN(specializations);
+
+-- ============================================================================
 -- TABLE: Lab Verification (Tiered Status)
 -- ============================================================================
 

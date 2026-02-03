@@ -110,6 +110,14 @@ export const metadata: Metadata = {
     canonical: "https://sciflowlabs.com",
   },
   category: "technology",
+  other: {
+    // Base Mini App / Farcaster Frame metadata
+    "fc:frame": "vNext",
+    "fc:frame:image": "https://sciflowlabs.com/og-image.png",
+    "fc:frame:button:1": "Open SciFlow",
+    "fc:frame:button:1:action": "launch_frame",
+    "fc:frame:button:1:target": "https://sciflowlabs.com",
+  },
 }
 
 export default async function RootLayout({

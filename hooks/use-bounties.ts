@@ -188,26 +188,44 @@ export function useBounty(bountyId: string): UseBountyReturn {
     }
   }, [bountyId, fetchBounty])
 
-  // Set up real-time subscription
+  // Set up real-time subscription with debouncing to prevent excessive refetches
   useEffect(() => {
     if (!bountyId) return
 
     const supabase = createClient()
-    
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null
+    let pendingRefetch = false
+
+    // Debounced refetch to batch multiple rapid updates into one request
+    const debouncedRefetch = () => {
+      if (debounceTimer) {
+        pendingRefetch = true
+        return
+      }
+
+      fetchBounty()
+      debounceTimer = setTimeout(() => {
+        debounceTimer = null
+        if (pendingRefetch) {
+          pendingRefetch = false
+          fetchBounty()
+        }
+      }, 500) // 500ms debounce window
+    }
+
     const channel = supabase
       .channel(`bounty:${bountyId}`)
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'UPDATE',
           schema: 'public',
           table: 'bounties',
           filter: `id=eq.${bountyId}`,
         },
         (payload) => {
-          if (payload.eventType === 'UPDATE') {
-            setBounty(prev => prev ? { ...prev, ...payload.new } : null)
-          }
+          // For bounty updates, merge directly without full refetch
+          setBounty(prev => prev ? { ...prev, ...payload.new } : null)
         }
       )
       .on(
@@ -219,8 +237,8 @@ export function useBounty(bountyId: string): UseBountyReturn {
           filter: `bounty_id=eq.${bountyId}`,
         },
         () => {
-          // Refresh full bounty when milestones change
-          fetchBounty()
+          // Use debounced refetch for related data changes
+          debouncedRefetch()
         }
       )
       .on(
@@ -232,12 +250,16 @@ export function useBounty(bountyId: string): UseBountyReturn {
           filter: `bounty_id=eq.${bountyId}`,
         },
         () => {
-          fetchBounty()
+          // Use debounced refetch for related data changes
+          debouncedRefetch()
         }
       )
       .subscribe()
 
     return () => {
+      if (debounceTimer) {
+        clearTimeout(debounceTimer)
+      }
       supabase.removeChannel(channel)
     }
   }, [bountyId, fetchBounty])

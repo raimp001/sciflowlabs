@@ -1,11 +1,40 @@
 /**
  * SciFlow Database Seed Script
- * 
- * This script populates the database with sample data for testing.
+ *
+ * WARNING: This script populates the database with sample/demo data.
+ * DO NOT run in production environments!
+ *
  * Run with: pnpm seed
+ *
+ * Environment:
+ * - NODE_ENV must NOT be 'production'
+ * - Set SEED_ALLOW_PRODUCTION=true to override (at your own risk)
  */
 
 import { createClient } from '@supabase/supabase-js'
+
+// Production safety check
+const isProduction = process.env.NODE_ENV === 'production'
+const forceAllow = process.env.SEED_ALLOW_PRODUCTION === 'true'
+
+if (isProduction && !forceAllow) {
+  console.error('❌ ERROR: Cannot run seed script in production!')
+  console.error('')
+  console.error('This script creates demo accounts with weak passwords.')
+  console.error('It should ONLY be used for development and testing.')
+  console.error('')
+  console.error('If you really need to seed production data, set:')
+  console.error('  SEED_ALLOW_PRODUCTION=true')
+  console.error('')
+  console.error('But consider creating a separate production seed script instead.')
+  process.exit(1)
+}
+
+if (forceAllow) {
+  console.warn('⚠️  WARNING: Running seed script with SEED_ALLOW_PRODUCTION=true')
+  console.warn('⚠️  Demo accounts will be created with weak passwords!')
+  console.warn('')
+}
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -330,10 +359,14 @@ async function seed() {
     }
 
     console.log('\n✨ Database seeding complete!')
-    console.log('\n📋 Demo Accounts:')
+    console.log('\n📋 Demo Accounts (DEVELOPMENT ONLY):')
     console.log('   Funder: funder@sciflow.demo / demo123456')
     console.log('   Lab: lab@sciflow.demo / demo123456')
     console.log('   Admin: admin@sciflow.demo / demo123456')
+    console.log('')
+    console.log('⚠️  SECURITY WARNING: These accounts use weak passwords.')
+    console.log('   Never use these credentials in production!')
+    console.log('   Delete these accounts or change passwords before going live.')
 
   } catch (error) {
     console.error('❌ Seeding failed:', error)

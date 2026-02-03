@@ -25,8 +25,21 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { bounty_id, amount, currency } = body
 
-    if (!bounty_id || !amount) {
+    if (!bounty_id || amount === undefined || amount === null) {
       return NextResponse.json({ error: 'Missing bounty_id or amount' }, { status: 400 })
+    }
+
+    // Validate amount is a positive finite number
+    const parsedAmount = parseFloat(amount)
+    if (isNaN(parsedAmount) || !isFinite(parsedAmount) || parsedAmount <= 0) {
+      return NextResponse.json({ error: 'Amount must be a positive number' }, { status: 400 })
+    }
+
+    // Validate reasonable bounds (min $1, max $10M)
+    if (parsedAmount < 1 || parsedAmount > 10000000) {
+      return NextResponse.json({
+        error: 'Amount must be between $1 and $10,000,000'
+      }, { status: 400 })
     }
 
     // Verify bounty exists and belongs to user
@@ -50,8 +63,8 @@ export async function POST(request: NextRequest) {
 
     // Calculate platform fee
     const platformFeePercent = parseInt(process.env.PLATFORM_FEE_PERCENTAGE || '5')
-    const platformFee = Math.round(amount * platformFeePercent / 100)
-    const totalAmount = amount + platformFee
+    const platformFee = Math.round(parsedAmount * platformFeePercent / 100)
+    const totalAmount = parsedAmount + platformFee
 
     // Create Stripe payment intent with manual capture
     // This allows us to hold funds in escrow until milestones are completed

@@ -2,13 +2,21 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import type { Database } from '@/types/database'
 
+class SupabaseConfigError extends Error {
+  constructor() {
+    super(
+      'Supabase is not configured. Please set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY environment variables.'
+    )
+    this.name = 'SupabaseConfigError'
+  }
+}
+
 export async function createClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
   if (!supabaseUrl || !supabaseKey) {
-    console.warn('Supabase not configured. Using mock client.')
-    return null as unknown as ReturnType<typeof createServerClient<Database>>
+    throw new SupabaseConfigError()
   }
 
   const cookieStore = await cookies()
@@ -34,4 +42,8 @@ export async function createClient() {
       },
     },
   })
+}
+
+export function isSupabaseConfigured(): boolean {
+  return !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
 }

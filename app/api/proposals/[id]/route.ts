@@ -19,7 +19,7 @@ export async function GET(
           funder:users!bounties_funder_id_fkey(id, full_name, avatar_url)
         ),
         lab:labs!proposals_lab_id_fkey(
-          id, name, verification_tier, reputation_score, bio, institution
+          id, name, verification_tier, reputation_score, description, institution_affiliation
         )
       `)
       .eq('id', id)
@@ -77,8 +77,8 @@ export async function PATCH(
       return NextResponse.json({ error: 'Only the bounty funder can update proposal status' }, { status: 403 })
     }
 
-    // Verify bounty is in correct state
-    if (proposal.bounty.state !== 'bidding' && proposal.bounty.state !== 'proposal_review') {
+    // Verify bounty is in correct state (bidding is when proposals can be accepted/rejected)
+    if (proposal.bounty.state !== 'bidding') {
       return NextResponse.json({ error: 'Bounty is not accepting proposal decisions' }, { status: 400 })
     }
 
@@ -106,18 +106,23 @@ export async function PATCH(
         .eq('bounty_id', proposal.bounty_id)
         .neq('id', id)
 
-      // Update bounty with selected lab and transition state
+      // Update bounty with selected lab and transition to active_research state
       await supabase
         .from('bounties')
         .update({
           selected_lab_id: proposal.lab_id,
-          state: 'lab_selected',
-          state_history: supabase.rpc('append_to_json_array', {
-            current_array: 'state_history',
-            new_item: { state: 'lab_selected', timestamp: new Date().toISOString(), by: user.id },
-          }),
+          state: 'active_research',
+          started_at: new Date().toISOString(),
         })
         .eq('id', proposal.bounty_id)
+
+      // Update state history using RPC function
+      await supabase.rpc('append_state_history', {
+        p_bounty_id: proposal.bounty_id,
+        p_from_state: 'bidding',
+        p_to_state: 'active_research',
+        p_changed_by: user.id
+      })
 
       // Notify lab
       await supabase.from('notifications').insert({

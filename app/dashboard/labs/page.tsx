@@ -173,17 +173,17 @@ export default function LabsPage() {
                     </div>
                   )}
 
-                  {/* Specialties */}
-                  {lab.specialties && lab.specialties.length > 0 && (
+                  {/* Specializations */}
+                  {lab.specializations && lab.specializations.length > 0 && (
                     <div className="flex flex-wrap gap-1 mb-4">
-                      {lab.specialties.slice(0, 3).map((s) => (
+                      {lab.specializations.slice(0, 3).map((s: string) => (
                         <Badge key={s} variant="secondary" className="text-xs font-normal bg-secondary text-muted-foreground">
                           {s}
                         </Badge>
                       ))}
-                      {lab.specialties.length > 3 && (
+                      {lab.specializations.length > 3 && (
                         <Badge variant="secondary" className="text-xs font-normal bg-secondary text-muted-foreground">
-                          +{lab.specialties.length - 3}
+                          +{lab.specializations.length - 3}
                         </Badge>
                       )}
                     </div>
@@ -197,9 +197,9 @@ export default function LabsPage() {
                         {lab.reputation_score?.toFixed(1) || "—"}
                       </span>
                     </div>
-                    {lab.staked_amount && (
+                    {lab.staking_balance > 0 && (
                       <span className="text-xs text-muted-foreground">
-                        ${lab.staked_amount.toLocaleString()} staked
+                        ${lab.staking_balance.toLocaleString()} staked
                       </span>
                     )}
                     <Button variant="ghost" size="sm" className="text-xs text-muted-foreground hover:text-foreground">

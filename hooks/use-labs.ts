@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState } from 'react'
+import { createClient } from '@/lib/supabase/client'
 import type { Lab } from '@/types/database'
 
 interface LabWithStats extends Lab {
@@ -9,7 +10,7 @@ interface LabWithStats extends Lab {
 }
 
 interface UseLabsOptions {
-  verification_tier?: string
+  tier?: string
   search?: string
   expertise?: string[]
   limit?: number
@@ -26,6 +27,7 @@ interface UseLabsReturn {
     totalPages: number
   }
   refetch: () => Promise<void>
+  refresh: () => Promise<void>
 }
 
 export function useLabs(options: UseLabsOptions = {}): UseLabsReturn {
@@ -45,8 +47,8 @@ export function useLabs(options: UseLabsOptions = {}): UseLabsReturn {
         limit: String(limit),
       })
 
-      if (options.verification_tier && options.verification_tier !== 'all') {
-        params.set('verification_tier', options.verification_tier)
+      if (options.tier && options.tier !== 'all') {
+        params.set('verification_tier', options.tier)
       }
       if (options.search) {
         params.set('search', options.search)
@@ -68,7 +70,7 @@ export function useLabs(options: UseLabsOptions = {}): UseLabsReturn {
     } finally {
       setIsLoading(false)
     }
-  }, [limit, options.verification_tier, options.search, options.expertise])
+  }, [limit, options.tier, options.search, options.expertise])
 
   useEffect(() => {
     fetchLabs()
@@ -85,6 +87,7 @@ export function useLabs(options: UseLabsOptions = {}): UseLabsReturn {
       totalPages: Math.ceil(total / limit),
     },
     refetch: fetchLabs,
+    refresh: fetchLabs,
   }
 }
 

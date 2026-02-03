@@ -56,12 +56,14 @@ export type Database = {
           name: string
           description: string | null
           website: string | null
+          location_country: string | null
           verification_tier: 'unverified' | 'basic' | 'verified' | 'trusted' | 'institutional'
           verification_documents: Json | null
           reputation_score: number
           total_bounties_completed: number
           total_earnings: number
           staking_balance: number
+          locked_stake: number
           specializations: string[]
           team_size: number | null
           institution_affiliation: string | null
@@ -80,6 +82,7 @@ export type Database = {
           total_bounties_completed?: number
           total_earnings?: number
           staking_balance?: number
+          locked_stake?: number
           specializations?: string[]
           team_size?: number | null
           institution_affiliation?: string | null
@@ -98,6 +101,7 @@ export type Database = {
           total_bounties_completed?: number
           total_earnings?: number
           staking_balance?: number
+          locked_stake?: number
           specializations?: string[]
           team_size?: number | null
           institution_affiliation?: string | null
