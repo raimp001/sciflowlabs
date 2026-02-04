@@ -197,6 +197,31 @@ export async function POST(request: NextRequest) {
       details: { title: bounty.title, budget: bounty.total_budget },
     })
 
+    // Notify all admins about new bounty for review
+    const { data: admins } = await supabase
+      .from('users')
+      .select('id')
+      .eq('role', 'admin')
+
+    if (admins && admins.length > 0) {
+      const adminNotifications = admins.map(admin => ({
+        user_id: admin.id,
+        type: 'bounty_update' as const,
+        title: 'New Bounty Requires Review',
+        message: `A new bounty "${bounty.title}" has been created with a budget of ${bounty.currency === 'USD' ? '$' : ''}${bounty.total_budget.toLocaleString()} ${bounty.currency}. Please review before it goes live.`,
+        data: {
+          bounty_id: bounty.id,
+          bounty_title: bounty.title,
+          budget: bounty.total_budget,
+          currency: bounty.currency,
+          funder_id: user.id,
+          action: 'review_required',
+        },
+      }))
+
+      await supabase.from('notifications').insert(adminNotifications)
+    }
+
     // Fetch complete bounty with milestones
     const { data: completeBounty } = await supabase
       .from('bounties')
