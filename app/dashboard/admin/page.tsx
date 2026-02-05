@@ -78,7 +78,7 @@ function formatDate(dateString: string) {
 }
 
 export default function AdminDashboardPage() {
-  const { user, isAuthenticated, privyReady } = useAuth()
+  const { isAuthenticated, privyReady } = useAuth()
   const router = useRouter()
   const [bounties, setBounties] = useState<Bounty[]>([])
   const [stats, setStats] = useState<Stats | null>(null)

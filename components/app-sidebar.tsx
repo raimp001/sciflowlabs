@@ -67,10 +67,7 @@ const accountMenuItems = [
 export function AppSidebar() {
   const pathname = usePathname()
   const { state: sidebarState } = useSidebar()
-  const { user, walletAddress, isAuthenticated } = useAuth()
-
-  // Check if user is admin (you can also check user.role if stored in profile)
-  const isAdmin = user?.role === 'admin'
+  const { dbUser, walletAddress, isAuthenticated, isAdmin } = useAuth()
 
   return (
     <Sidebar collapsible="icon" side="left" className="border-r-0">
@@ -228,14 +225,14 @@ export function AppSidebar() {
             </p>
           </div>
         )}
-        {sidebarState === "expanded" && isAuthenticated && !walletAddress && user && (
+        {sidebarState === "expanded" && isAuthenticated && !walletAddress && dbUser && (
           <div className="px-3 py-3 mt-2 mx-1 rounded-lg bg-blue-900/40 border border-blue-700/30">
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-blue-400" />
               <span className="text-xs text-blue-200 font-medium">Signed In</span>
             </div>
             <p className="text-xs text-slate-300 mt-1 truncate">
-              {user.full_name || user.email || 'User'}
+              {dbUser.full_name || dbUser.email || 'User'}
             </p>
           </div>
         )}
