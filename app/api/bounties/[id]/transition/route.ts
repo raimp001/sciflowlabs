@@ -13,9 +13,19 @@ const stateTransitions: Record<string, {
   conditions?: string[]
 }> = {
   drafting: {
-    validEvents: ['SUBMIT_DRAFT', 'CANCEL_BOUNTY'],
+    validEvents: ['SUBMIT_DRAFT', 'ADMIN_APPROVE', 'ADMIN_REJECT', 'CANCEL_BOUNTY'],
     targetStates: {
       SUBMIT_DRAFT: 'ready_for_funding',
+      ADMIN_APPROVE: 'seeking_proposals',
+      ADMIN_REJECT: 'cancelled',
+      CANCEL_BOUNTY: 'cancelled',
+    },
+    permissions: ['funder', 'admin'],
+  },
+  seeking_proposals: {
+    validEvents: ['INITIATE_FUNDING', 'CANCEL_BOUNTY'],
+    targetStates: {
+      INITIATE_FUNDING: 'funding_escrow',
       CANCEL_BOUNTY: 'cancelled',
     },
     permissions: ['funder'],
@@ -32,7 +42,7 @@ const stateTransitions: Record<string, {
     validEvents: ['FUNDING_CONFIRMED', 'FUNDING_FAILED'],
     targetStates: {
       FUNDING_CONFIRMED: 'bidding',
-      FUNDING_FAILED: 'ready_for_funding',
+      FUNDING_FAILED: 'seeking_proposals',
     },
     permissions: ['funder', 'admin'],
     conditions: ['escrow_created'],

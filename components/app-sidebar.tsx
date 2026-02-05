@@ -12,20 +12,22 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
 } from "@/components/ui/sidebar"
-import { 
-  Home, 
-  FlaskConical, 
-  FileText, 
-  Users, 
-  Settings, 
-  UserCircle, 
+import {
+  Home,
+  FlaskConical,
+  FileText,
+  Users,
+  Settings,
+  UserCircle,
   LifeBuoy,
   Wallet,
   Scale,
   BarChart3,
   ShieldCheck,
-  CircleDollarSign
+  CircleDollarSign,
+  Shield
 } from "lucide-react"
+import { useAuth } from "@/contexts/auth-context"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useSidebar } from "@/components/ui/sidebar"
@@ -52,6 +54,10 @@ const platformMenuItems = [
   { title: "Leaderboard", url: "/dashboard/leaderboard", icon: Users },
 ]
 
+const adminMenuItems = [
+  { title: "Admin Dashboard", url: "/dashboard/admin", icon: Shield },
+]
+
 const accountMenuItems = [
   { title: "Profile", url: "/profile", icon: UserCircle },
   { title: "Settings", url: "/settings", icon: Settings },
@@ -61,6 +67,10 @@ const accountMenuItems = [
 export function AppSidebar() {
   const pathname = usePathname()
   const { state: sidebarState } = useSidebar()
+  const { user, walletAddress, isAuthenticated } = useAuth()
+
+  // Check if user is admin (you can also check user.role if stored in profile)
+  const isAdmin = user?.role === 'admin'
 
   return (
     <Sidebar collapsible="icon" side="left" className="border-r-0">
@@ -141,9 +151,9 @@ export function AppSidebar() {
             <SidebarMenu>
               {platformMenuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton 
-                    asChild 
-                    isActive={pathname.startsWith(item.url)} 
+                  <SidebarMenuButton
+                    asChild
+                    isActive={pathname.startsWith(item.url)}
                     tooltip={item.title}
                     className="text-slate-200 hover:text-white hover:bg-sidebar-accent data-[active=true]:bg-sky-500/25 data-[active=true]:text-sky-300 data-[active=true]:font-medium"
                   >
@@ -157,6 +167,34 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {/* Admin (conditionally shown) */}
+        {isAdmin && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-xs font-semibold text-red-400/90 uppercase tracking-wider">
+              Admin
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {adminMenuItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={pathname.startsWith(item.url)}
+                      tooltip={item.title}
+                      className="text-slate-200 hover:text-white hover:bg-sidebar-accent data-[active=true]:bg-red-500/25 data-[active=true]:text-red-300 data-[active=true]:font-medium"
+                    >
+                      <Link href={item.url}>
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
       
       <SidebarFooter className="border-t border-sidebar-border pt-2">
@@ -179,14 +217,25 @@ export function AppSidebar() {
         </SidebarMenu>
         
         {/* Wallet connection indicator */}
-        {sidebarState === "expanded" && (
+        {sidebarState === "expanded" && isAuthenticated && walletAddress && (
           <div className="px-3 py-3 mt-2 mx-1 rounded-lg bg-emerald-900/40 border border-emerald-700/30">
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
               <span className="text-xs text-emerald-200 font-medium">Wallet Connected</span>
             </div>
             <p className="text-xs font-mono text-slate-300 mt-1 truncate">
-              0x1a2b...3c4d
+              {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
+            </p>
+          </div>
+        )}
+        {sidebarState === "expanded" && isAuthenticated && !walletAddress && user && (
+          <div className="px-3 py-3 mt-2 mx-1 rounded-lg bg-blue-900/40 border border-blue-700/30">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-blue-400" />
+              <span className="text-xs text-blue-200 font-medium">Signed In</span>
+            </div>
+            <p className="text-xs text-slate-300 mt-1 truncate">
+              {user.full_name || user.email || 'User'}
             </p>
           </div>
         )}
