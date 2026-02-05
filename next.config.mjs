@@ -11,6 +11,15 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  // Rewrite .well-known paths to API routes (Next.js doesn't serve dot-prefixed folders)
+  async rewrites() {
+    return [
+      {
+        source: '/.well-known/farcaster.json',
+        destination: '/api/farcaster-manifest',
+      },
+    ]
+  },
   // Headers for Farcaster Frame / Base Mini App embedding
   async headers() {
     return [
