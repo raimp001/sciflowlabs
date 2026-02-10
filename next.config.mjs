@@ -5,10 +5,6 @@ const nextConfig = {
     // TODO: Run `npx supabase gen types typescript` to fix types
     ignoreBuildErrors: true,
   },
-  eslint: {
-    // Run ESLint during builds
-    ignoreDuringBuilds: true,
-  },
   images: {
     unoptimized: true,
   },
