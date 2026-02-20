@@ -42,11 +42,11 @@ export default function DashboardPage() {
 
   const stats = useMemo(() => ({
     active: bounties.filter(b =>
-      ["active_research", "milestone_review", "bidding", "funding_escrow"].includes(b.current_state)
+      ["active_research", "milestone_review", "bidding", "funding_escrow"].includes(b.state)
     ).length,
     total: bounties.reduce((sum, b) => sum + (b.total_budget || 0), 0),
-    completed: bounties.filter(b => b.current_state === "completed").length,
-    disputes: bounties.filter(b => b.current_state === "dispute_resolution").length,
+    completed: bounties.filter(b => b.state === "completed").length,
+    disputes: bounties.filter(b => b.state === "dispute_resolution").length,
   }), [bounties])
 
   const hasError = error !== null
@@ -131,8 +131,8 @@ export default function DashboardPage() {
                       {formatCurrency(bounty.total_budget || 0, bounty.currency || "USD")}
                     </p>
                   </div>
-                  <Badge className={stateColors[bounty.current_state] || stateColors.drafting}>
-                    {stateLabels[bounty.current_state] || bounty.current_state}
+                  <Badge className={stateColors[bounty.state] || stateColors.drafting}>
+                    {stateLabels[bounty.state] || bounty.state}
                   </Badge>
                 </div>
               </Link>

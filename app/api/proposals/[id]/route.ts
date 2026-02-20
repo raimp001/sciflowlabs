@@ -106,16 +106,26 @@ export async function PATCH(
         .eq('bounty_id', proposal.bounty_id)
         .neq('id', id)
 
+      // Fetch current state_history before updating
+      const { data: bountyData } = await supabase
+        .from('bounties')
+        .select('state_history')
+        .eq('id', proposal.bounty_id)
+        .single()
+
+      const currentHistory = Array.isArray(bountyData?.state_history) ? bountyData.state_history : []
+      const newHistory = [
+        ...currentHistory,
+        { state: 'lab_selected', timestamp: new Date().toISOString(), by: user.id },
+      ]
+
       // Update bounty with selected lab and transition state
       await supabase
         .from('bounties')
         .update({
           selected_lab_id: proposal.lab_id,
           state: 'lab_selected',
-          state_history: supabase.rpc('append_to_json_array', {
-            current_array: 'state_history',
-            new_item: { state: 'lab_selected', timestamp: new Date().toISOString(), by: user.id },
-          }),
+          state_history: newHistory,
         })
         .eq('id', proposal.bounty_id)
 
