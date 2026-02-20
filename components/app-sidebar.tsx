@@ -30,6 +30,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useSidebar } from "@/components/ui/sidebar"
 import { SciFlowLogo } from "@/components/sciflow-logo"
+import { ConnectWalletButton } from "@/components/connect-wallet-button"
 
 // SciFlow Navigation Items
 const funderMenuItems = [
@@ -178,17 +179,9 @@ export function AppSidebar() {
           ))}
         </SidebarMenu>
         
-        {/* Wallet connection indicator */}
+        {/* Wallet connection */}
         {sidebarState === "expanded" && (
-          <div className="px-3 py-3 mt-2 mx-1 rounded-lg bg-emerald-900/40 border border-emerald-700/30">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-xs text-emerald-200 font-medium">Wallet Connected</span>
-            </div>
-            <p className="text-xs font-mono text-slate-300 mt-1 truncate">
-              0x1a2b...3c4d
-            </p>
-          </div>
+          <ConnectWalletButton variant="sidebar" />
         )}
       </SidebarFooter>
     </Sidebar>

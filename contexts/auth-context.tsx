@@ -16,6 +16,7 @@ interface AuthContextType {
   isLab: boolean
   isAdmin: boolean
   isConfigured: boolean
+  walletAddress: string | null
   signInWithEmail: (email: string, password: string) => Promise<{ error: Error | null }>
   signUpWithEmail: (email: string, password: string, fullName: string, role: 'funder' | 'lab') => Promise<{ error: Error | null }>
   signInWithWallet: (provider: 'solana' | 'evm', address: string, signature: string) => Promise<{ error: Error | null }>
@@ -209,6 +210,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLab(null)
   }
 
+  const walletAddress = dbUser?.wallet_address_evm || dbUser?.wallet_address_solana || null
+
   const value: AuthContextType = {
     user,
     session,
@@ -220,6 +223,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isLab: dbUser?.role === 'lab',
     isAdmin: dbUser?.role === 'admin',
     isConfigured,
+    walletAddress,
     signInWithEmail,
     signUpWithEmail,
     signInWithWallet,

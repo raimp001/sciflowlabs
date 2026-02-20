@@ -6,7 +6,6 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { 
-  ArrowLeft,
   FileText,
   FlaskConical,
   Shield,
@@ -18,7 +17,6 @@ import {
   AlertTriangle,
   TrendingUp,
   Zap,
-  Download,
   ChevronDown,
   ChevronUp
 } from "lucide-react"
@@ -52,36 +50,10 @@ export default function WhitepaperPage() {
     return () => window.removeEventListener("hashchange", updateActiveFromHash)
   }, [])
 
-  const handleDownloadPDF = () => {
-    alert("PDF download will be available soon. The whitepaper content is displayed below.")
-  }
-
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-background/95 backdrop-blur border-b border-border">
-        <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
-          <Link 
-            href="/" 
-            className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>Back to Home</span>
-          </Link>
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={handleDownloadPDF}
-            className="border-border hover:bg-secondary rounded-full"
-          >
-            <Download className="w-4 h-4 mr-2" />
-            Download PDF
-          </Button>
-        </div>
-      </header>
-
+    <div className="bg-background text-foreground">
       {/* Content */}
-      <main className="max-w-4xl mx-auto px-6 py-12">
+      <div className="max-w-4xl mx-auto py-8">
         {/* Title Block */}
         <div className="text-center mb-12">
           <Badge className="mb-4 bg-accent/20 text-accent border-accent/30">
@@ -519,29 +491,7 @@ export default function WhitepaperPage() {
             </CardContent>
           </Card>
         </article>
-      </main>
-
-      {/* Footer */}
-      <footer className="py-10 border-t border-border mt-12">
-        <div className="max-w-4xl mx-auto px-6 text-center">
-          <div className="flex items-center justify-center gap-2 mb-3">
-            <svg viewBox="0 0 24 24" fill="none" className="w-6 h-6">
-              <path 
-                d="M9 3V11L5 19C4.5 20 5 21 6 21H18C19 21 19.5 20 19 19L15 11V3" 
-                stroke="hsl(20, 70%, 55%)"
-                strokeWidth="1.5" 
-                strokeLinecap="round" 
-                strokeLinejoin="round"
-              />
-              <path d="M9 3H15" stroke="hsl(20, 70%, 55%)" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
-            <span className="font-medium text-foreground">SciFlow</span>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            © 2026 SciFlow Protocol. Licensed under MIT.
-          </p>
-        </div>
-      </footer>
+      </div>
     </div>
   )
 }

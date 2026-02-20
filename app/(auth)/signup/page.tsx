@@ -89,20 +89,6 @@ export default function SignupPage() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md border-border bg-card">
         <CardHeader className="text-center pb-2">
-          <div className="flex justify-center mb-4">
-            <svg viewBox="0 0 24 24" fill="none" className="w-12 h-12">
-              <path 
-                d="M9 3V11L5 19C4.5 20 5 21 6 21H18C19 21 19.5 20 19 19L15 11V3" 
-                stroke="hsl(20, 70%, 55%)"
-                strokeWidth="1.5" 
-                strokeLinecap="round" 
-                strokeLinejoin="round"
-              />
-              <path d="M9 3H15" stroke="hsl(20, 70%, 55%)" strokeWidth="1.5" strokeLinecap="round" />
-              <circle cx="11" cy="15" r="1.2" fill="hsl(20, 70%, 55%)" />
-              <circle cx="14" cy="16" r="0.9" fill="hsl(20, 70%, 65%)" />
-            </svg>
-          </div>
           <CardTitle className="text-2xl font-serif text-foreground">
             Create Your Account
           </CardTitle>
