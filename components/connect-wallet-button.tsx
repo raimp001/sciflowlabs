@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from 'react'
-import { useConnectors, useEnsName } from 'wagmi'
+import { useEnsName } from 'wagmi'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
@@ -20,10 +20,8 @@ function fmt(address: string) {
 
 export function ConnectWalletButton({ variant = 'header' }: { variant?: 'header' | 'sidebar' }) {
   const { isAuthenticated, isLoading, authStep, walletAddress, dbUser, connectWallet, disconnectWallet } = useAuth()
-  const connectors = useConnectors()
   const { data: ensName } = useEnsName({ address: walletAddress as `0x${string}` | undefined })
   const [copied, setCopied] = useState(false)
-  const [showPicker, setShowPicker] = useState(false)
 
   const displayName = dbUser?.full_name
     ?? ensName
@@ -138,27 +136,8 @@ export function ConnectWalletButton({ variant = 'header' }: { variant?: 'header'
     )
   }
 
-  // ── Not signed in — header (dropdown wallet picker) ──
-  if (showPicker) {
-    return (
-      <div className="flex items-center gap-2">
-        {connectors.slice(0, 2).map((c, i) => (
-          <Button key={c.uid} size="sm" variant="outline" className="rounded-full text-xs"
-            onClick={() => { connectWallet(i); setShowPicker(false) }}>
-            {c.name.toLowerCase().includes('coinbase') ? 'Coinbase' : c.name}
-          </Button>
-        ))}
-        <Button size="sm" variant="ghost" className="text-xs text-muted-foreground"
-          onClick={() => setShowPicker(false)}>
-          Cancel
-        </Button>
-      </div>
-    )
-  }
-
   return (
-    <Button size="sm" className="rounded-full gap-2"
-      onClick={() => connectors.length === 1 ? connectWallet(0) : setShowPicker(true)}>
+    <Button size="sm" className="rounded-full gap-2" onClick={() => connectWallet(0)}>
       <Wallet className="w-3.5 h-3.5" />
       Sign In
     </Button>
