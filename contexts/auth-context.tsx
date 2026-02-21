@@ -125,12 +125,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({ address: walletAddress, signature, message }),
       })
 
+      const authData = await authRes.json()
       if (!authRes.ok) {
-        const { error } = await authRes.json()
-        throw new Error(error || 'Authentication failed')
+        throw new Error(authData.error || `Server error (${authRes.status})`)
       }
 
-      const { email, tempPassword } = await authRes.json()
+      const { email, tempPassword } = authData
 
       // Sign into Supabase — creates a persistent session
       if (supabase) {
