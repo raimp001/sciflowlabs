@@ -1,6 +1,6 @@
 import { http, createConfig } from 'wagmi'
 import { base } from 'wagmi/chains'
-import { coinbaseWallet } from 'wagmi/connectors'
+import { coinbaseWallet, injected, metaMask } from 'wagmi/connectors'
 
 export const wagmiConfig = createConfig({
   chains: [base],
@@ -8,8 +8,10 @@ export const wagmiConfig = createConfig({
     coinbaseWallet({
       appName: 'SciFlow',
       appLogoUrl: 'https://sciflowlabs.com/icon.png',
-      preference: 'smartWalletOnly', // Coinbase Smart Wallet only
+      preference: 'all', // shows both Smart Wallet and Coinbase app
     }),
+    metaMask(),
+    injected({ shimDisconnect: true }), // any other browser wallet
   ],
   transports: {
     [base.id]: http(process.env.NEXT_PUBLIC_BASE_RPC_URL || 'https://mainnet.base.org'),

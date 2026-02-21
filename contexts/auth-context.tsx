@@ -1,139 +1,221 @@
 "use client"
 
-import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react'
-import { usePrivy, useWallets } from '@privy-io/react-auth'
+import {
+  createContext, useContext, useEffect, useState,
+  useCallback, useRef, type ReactNode,
+} from 'react'
+import { useAccount, useConnect, useDisconnect, useSignMessage } from 'wagmi'
+import { base } from 'wagmi/chains'
 import { createClient } from '@/lib/supabase/client'
 import type { User as DbUser, Lab } from '@/types/database'
+import { toast } from 'sonner'
+
+type AuthStep = 'idle' | 'connecting' | 'signing' | 'authenticating'
 
 interface AuthContextType {
-  // Privy user state
-  privyUser: ReturnType<typeof usePrivy>['user']
+  // Wallet / auth state
   isAuthenticated: boolean
   isLoading: boolean
+  walletAddress: string | null
+  authStep: AuthStep
+  authError: string | null
 
-  // DB user profile
+  // DB profile
   dbUser: DbUser | null
   lab: Lab | null
   isFunder: boolean
   isLab: boolean
   isAdmin: boolean
 
-  // Wallet
-  walletAddress: string | null
-  embeddedWallet: { address: string } | null
-
   // Actions
-  login: () => void
-  logout: () => Promise<void>
+  connectWallet: (connectorIndex: number) => void
+  disconnectWallet: () => Promise<void>
   refreshUser: () => Promise<void>
-
-  // Legacy compat — kept for existing API routes
-  signInWithWallet: (
-    provider: 'solana' | 'evm',
-    address: string,
-    signature: string,
-    message: string,
-    nonce: string,
-  ) => Promise<{ error: Error | null }>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const { user: privyUser, authenticated, ready, login, logout: privyLogout } = usePrivy()
-  const { wallets } = useWallets()
+  const { address, isConnected, connector } = useAccount()
+  const { connect, connectors } = useConnect()
+  const { disconnect } = useDisconnect()
+  const { signMessageAsync } = useSignMessage()
 
+  const [authStep, setAuthStep] = useState<AuthStep>('idle')
+  const [authError, setAuthError] = useState<string | null>(null)
   const [dbUser, setDbUser] = useState<DbUser | null>(null)
   const [lab, setLab] = useState<Lab | null>(null)
-  const [isSyncing, setIsSyncing] = useState(false)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const authInProgress = useRef(false)
 
   const supabase = createClient()
 
-  // Find the embedded or connected wallet
-  const embeddedWallet = wallets.find(w => w.walletClientType === 'privy') ?? wallets[0] ?? null
-  const walletAddress = embeddedWallet?.address ?? null
+  // Load DB profile after wallet auth
+  const loadProfile = useCallback(async (userId: string) => {
+    if (!supabase) return
+    const { data: userData } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', userId)
+      .single()
 
-  // Sync Privy user → Supabase user record
-  const syncUser = useCallback(async () => {
-    if (!privyUser || !supabase) return
-    setIsSyncing(true)
+    if (userData) {
+      setDbUser(userData)
+      if (userData.role === 'lab') {
+        const { data: labData } = await supabase
+          .from('labs').select('*').eq('user_id', userId).single()
+        setLab(labData)
+      }
+    }
+  }, [supabase])
 
+  // On mount — check for existing Supabase session (persists across refreshes)
+  useEffect(() => {
+    if (!supabase) return
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session?.user) {
+        setIsAuthenticated(true)
+        await loadProfile(session.user.id)
+      }
+    })
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session?.user) {
+        setIsAuthenticated(true)
+        await loadProfile(session.user.id)
+      } else if (event === 'SIGNED_OUT') {
+        setIsAuthenticated(false)
+        setDbUser(null)
+        setLab(null)
+      }
+    })
+
+    return () => subscription.unsubscribe()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // When wallet connects while we're in the "connecting" step, run auth
+  useEffect(() => {
+    if (isConnected && address && authStep === 'connecting' && !authInProgress.current) {
+      authInProgress.current = true
+      authenticateWallet(address).finally(() => { authInProgress.current = false })
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isConnected, address, authStep])
+
+  const authenticateWallet = async (walletAddress: string) => {
     try {
-      const res = await fetch('/api/auth/privy', {
+      setAuthStep('signing')
+      setAuthError(null)
+
+      // Get challenge from server
+      const res = await fetch(`/api/auth/wallet?address=${walletAddress}`)
+      if (!res.ok) throw new Error('Failed to get sign-in challenge')
+      const { message } = await res.json()
+
+      // Sign with the wallet (supports EIP-1271 for Smart Wallet)
+      const signature = await signMessageAsync({ message })
+
+      setAuthStep('authenticating')
+
+      // Verify + get Supabase credentials
+      const authRes = await fetch('/api/auth/wallet', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          privyUserId: privyUser.id,
-          email: privyUser.email?.address,
-          walletAddress: walletAddress?.toLowerCase(),
-          name: privyUser.google?.name,
-        }),
+        body: JSON.stringify({ address: walletAddress, signature, message }),
       })
 
-      if (!res.ok) return
-
-      const { userId } = await res.json()
-
-      const { data: userData } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', userId)
-        .single()
-
-      if (userData) {
-        setDbUser(userData)
-        if (userData.role === 'lab') {
-          const { data: labData } = await supabase
-            .from('labs')
-            .select('*')
-            .eq('user_id', userId)
-            .single()
-          setLab(labData)
-        }
+      if (!authRes.ok) {
+        const { error } = await authRes.json()
+        throw new Error(error || 'Authentication failed')
       }
-    } catch (e) {
-      console.error('[Auth] Sync failed:', e)
-    } finally {
-      setIsSyncing(false)
+
+      const { email, tempPassword } = await authRes.json()
+
+      // Sign into Supabase — creates a persistent session
+      if (supabase) {
+        const { error: signInError } = await supabase.auth.signInWithPassword({ email, password: tempPassword })
+        if (signInError) throw signInError
+      }
+
+      setAuthStep('idle')
+      toast.success('Signed in')
+    } catch (err) {
+      disconnect()
+      const msg = err instanceof Error ? err.message : 'Sign-in failed'
+      if (!msg.includes('User rejected') && !msg.includes('user rejected')) {
+        setAuthError(msg)
+        toast.error(msg)
+      }
+      setAuthStep('idle')
     }
-  }, [privyUser, walletAddress, supabase])
-
-  useEffect(() => {
-    if (ready && authenticated && privyUser) {
-      syncUser()
-    } else if (ready && !authenticated) {
-      setDbUser(null)
-      setLab(null)
-    }
-  }, [ready, authenticated, privyUser, syncUser])
-
-  const logout = useCallback(async () => {
-    await privyLogout()
-    setDbUser(null)
-    setLab(null)
-  }, [privyLogout])
-
-  // Legacy wallet sign-in compat (used by old hooks — now a no-op via Privy)
-  const signInWithWallet = async () => ({ error: null })
-
-  const value: AuthContextType = {
-    privyUser,
-    isAuthenticated: authenticated,
-    isLoading: !ready || isSyncing,
-    dbUser,
-    lab,
-    isFunder: dbUser?.role === 'funder' || dbUser?.role === 'admin',
-    isLab: dbUser?.role === 'lab',
-    isAdmin: dbUser?.role === 'admin',
-    walletAddress,
-    embeddedWallet: embeddedWallet ? { address: embeddedWallet.address } : null,
-    login,
-    logout,
-    refreshUser: syncUser,
-    signInWithWallet,
   }
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+  const connectWallet = useCallback((connectorIndex: number) => {
+    setAuthError(null)
+    setAuthStep('connecting')
+    const c = connectors[connectorIndex]
+    if (!c) { setAuthStep('idle'); return }
+    connect({ connector: c, chainId: base.id }, {
+      onError: (err) => {
+        if (!err.message.includes('rejected')) setAuthError(err.message)
+        setAuthStep('idle')
+      },
+    })
+  }, [connect, connectors])
+
+  const disconnectWallet = useCallback(async () => {
+    disconnect()
+    if (supabase) await supabase.auth.signOut()
+    setIsAuthenticated(false)
+    setDbUser(null)
+    setLab(null)
+    setAuthStep('idle')
+    setAuthError(null)
+    toast.success('Signed out')
+  }, [disconnect, supabase])
+
+  const refreshUser = useCallback(async () => {
+    if (!supabase) return
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session?.user) await loadProfile(session.user.id)
+  }, [supabase, loadProfile])
+
+  const stepLabel = {
+    connecting: 'Opening wallet…',
+    signing: 'Approve sign-in in wallet…',
+    authenticating: 'Signing you in…',
+    idle: null,
+  }[authStep]
+
+  const isLoading = authStep !== 'idle'
+
+  return (
+    <AuthContext.Provider value={{
+      isAuthenticated,
+      isLoading,
+      walletAddress: address ?? null,
+      authStep,
+      authError,
+      dbUser,
+      lab,
+      isFunder: dbUser?.role === 'funder' || dbUser?.role === 'admin',
+      isLab: dbUser?.role === 'lab',
+      isAdmin: dbUser?.role === 'admin',
+      connectWallet,
+      disconnectWallet,
+      refreshUser,
+    }}>
+      {/* Auth step banner */}
+      {authStep !== 'idle' && (
+        <div className="fixed top-0 inset-x-0 z-50 bg-accent/10 border-b border-accent/20 px-4 py-2 flex items-center justify-center gap-2">
+          <span className="animate-spin text-accent text-xs">⟳</span>
+          <span className="text-sm text-foreground">{stepLabel}</span>
+        </div>
+      )}
+      {children}
+    </AuthContext.Provider>
+  )
 }
 
 export function useAuth() {
