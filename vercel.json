@@ -1,0 +1,20 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/watchdog",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/reputation",
+      "schedule": "0 2 * * *"
+    }
+  ],
+  "functions": {
+    "app/api/cron/**": {
+      "maxDuration": 300
+    },
+    "app/api/agent/**": {
+      "maxDuration": 60
+    }
+  }
+}
