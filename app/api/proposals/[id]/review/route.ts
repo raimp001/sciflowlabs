@@ -1,23 +1,23 @@
 /**
- * app/api/proposals/[id]/review/route.ts  (PR#3)
+ * app/api/proposals/[id]/review/route.ts (PR#3)
  *
- * GET   /api/proposals/:id/review
- *   – Returns all ProposalReview rows for a proposal
- *   – Reviewers see own review; admins/funders see all
- *   – Labs see only aggregate score (double-blind until decision)
+ * GET  /api/proposals/:id/review
+ *  – Returns all ProposalReview rows for a proposal
+ *  – Reviewers see own review; admins/funders see all
+ *  – Labs see only aggregate score (double-blind until decision)
  *
- * POST  /api/proposals/:id/review
- *   – Creates or updates a reviewer's scorecard
- *   – Requires role='reviewer' (assigned by admin)
- *   – On submission: recomputes overall_score, updates proposal peer_review_status
- *   – If approvals >= bounty.peer_review_threshold → proposal peer_review_status='approved'
+ * POST /api/proposals/:id/review
+ *  – Creates or updates a reviewer's scorecard
+ *  – Requires role='reviewer' (assigned by admin)
+ *  – On submission: recomputes overall_score, updates proposal peer_review_status
+ *  – If approvals >= bounty.peer_review_threshold → proposal peer_review_status='approved'
  */
-
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient }             from '@/lib/supabase/server'
 import type { ReviewDecision }       from '@/types/database'
 
-type Ctx = { params: { id: string } }
+// Next.js 15: params is now a Promise
+type Ctx = { params: Promise<{ id: string }> }
 
 // Weights for overall_score computation
 const WEIGHTS = {
@@ -36,10 +36,10 @@ function computeOverallScore(scores: Record<string, number>): number {
   return Math.round(total * 100) / 100
 }
 
-// ── GET ────────────────────────────────────────────────────────────────────
+// ── GET ──────────────────────────────────────────────────────────────────
 export async function GET(_request: NextRequest, { params }: Ctx) {
+  const { id: proposalId } = await params
   const supabase = await createClient()
-
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -50,7 +50,6 @@ export async function GET(_request: NextRequest, { params }: Ctx) {
     .single()
 
   const role = profile?.role ?? 'lab'
-  const proposalId = params.id
 
   // Admins and funders see full reviews
   if (role === 'admin' || role === 'funder') {
@@ -59,7 +58,6 @@ export async function GET(_request: NextRequest, { params }: Ctx) {
       .select('*')
       .eq('proposal_id', proposalId)
       .order('created_at', { ascending: true })
-
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ reviews: data })
   }
@@ -72,7 +70,6 @@ export async function GET(_request: NextRequest, { params }: Ctx) {
       .eq('proposal_id', proposalId)
       .eq('reviewer_id', user.id)
       .maybeSingle()
-
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ review: data })
   }
@@ -91,19 +88,19 @@ export async function GET(_request: NextRequest, { params }: Ctx) {
 
   return NextResponse.json({
     aggregate: {
-      count:         submitted.length,
+      count: submitted.length,
       average_score: avgScore ? Math.round(avgScore * 100) / 100 : null,
-      approvals:     submitted.filter((r) => r.decision === 'approve').length,
-      revisions:     submitted.filter((r) => r.decision === 'revise').length,
-      rejections:    submitted.filter((r) => r.decision === 'reject').length,
+      approvals:  submitted.filter((r) => r.decision === 'approve').length,
+      revisions:  submitted.filter((r) => r.decision === 'revise').length,
+      rejections: submitted.filter((r) => r.decision === 'reject').length,
     },
   })
 }
 
-// ── POST ───────────────────────────────────────────────────────────────────
+// ── POST ─────────────────────────────────────────────────────────────────
 export async function POST(request: NextRequest, { params }: Ctx) {
+  const { id: proposalId } = await params
   const supabase = await createClient()
-
   const { data: { user }, error: authErr } = await supabase.auth.getUser()
   if (authErr || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -121,12 +118,10 @@ export async function POST(request: NextRequest, { params }: Ctx) {
     )
   }
 
-  const proposalId = params.id
-
-  // Validate proposal exists
+  // Validate proposal exists — use FK hint for bounty join
   const { data: proposal, error: propErr } = await supabase
     .from('proposals')
-    .select('*, bounties(peer_review_threshold, peer_review_required)')
+    .select('*, bounty:bounties!proposals_bounty_id_fkey(peer_review_threshold, peer_review_required)')
     .eq('id', proposalId)
     .single()
 
@@ -170,13 +165,13 @@ export async function POST(request: NextRequest, { params }: Ctx) {
     bounty_id:                 proposal.bounty_id,
     reviewer_id:               user.id,
     is_blind:                  true,
-    score_scientific_merit:    body.score_scientific_merit    as number,
-    score_feasibility:         body.score_feasibility         as number,
-    score_innovation:          body.score_innovation          as number,
+    score_scientific_merit:    body.score_scientific_merit as number,
+    score_feasibility:         body.score_feasibility as number,
+    score_innovation:          body.score_innovation as number,
     score_team_qualifications: body.score_team_qualifications as number,
-    score_ethics_compliance:   body.score_ethics_compliance   as number,
+    score_ethics_compliance:   body.score_ethics_compliance as number,
     overall_score:             overallScore,
-    strengths:                 (body.strengths as string)  ?? '',
+    strengths:                 (body.strengths as string) ?? '',
     weaknesses:                (body.weaknesses as string) ?? '',
     requested_revisions:       (body.requested_revisions as string) ?? null,
     decision:                  body.decision as ReviewDecision,
@@ -206,23 +201,23 @@ export async function POST(request: NextRequest, { params }: Ctx) {
     .eq('proposal_id', proposalId)
     .not('submitted_at', 'is', null)
 
-  const submitted   = allReviews ?? []
-  const approvals   = submitted.filter((r) => r.decision === 'approve').length
-  const rejections  = submitted.filter((r) => r.decision === 'reject').length
-  const threshold   = (proposal as any).bounties?.peer_review_threshold ?? 2
+  const submitted = allReviews ?? []
+  const approvals  = submitted.filter((r) => r.decision === 'approve').length
+  const rejections = submitted.filter((r) => r.decision === 'reject').length
+  const threshold  = (proposal.bounty as any)?.peer_review_threshold ?? 2
 
   let peerStatus: string
-  if (approvals >= threshold)   peerStatus = 'approved'
+  if (approvals  >= threshold) peerStatus = 'approved'
   else if (rejections >= threshold) peerStatus = 'rejected'
-  else                           peerStatus = 'in_review'
+  else peerStatus = 'in_review'
 
   await supabase
     .from('proposals')
     .update({
-      peer_review_status:    peerStatus,
-      peer_review_approvals: approvals,
-      peer_review_rejections: rejections,
-      updated_at:            new Date().toISOString(),
+      peer_review_status:      peerStatus,
+      peer_review_approvals:   approvals,
+      peer_review_rejections:  rejections,
+      updated_at:              new Date().toISOString(),
     })
     .eq('id', proposalId)
 
