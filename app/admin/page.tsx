@@ -41,6 +41,7 @@ export default function AdminPage() {
   const { isAuthenticated, dbUser, isLoading } = useAuth()
   const router = useRouter()
   const [bounties, setBounties] = useState<Bounty[]>([])
+  const [verifyRequests, setVerifyRequests] = useState<Array<{ id: string; data: Record<string, unknown>; created_at: string }>>([])
   const [fetching, setFetching] = useState(true)
   const [acting, setActing] = useState<string | null>(null)
   const [selected, setSelected] = useState<Bounty | null>(null)
@@ -49,10 +50,18 @@ export default function AdminPage() {
   const fetchBounties = useCallback(async () => {
     setFetching(true)
     try {
-      const res = await fetch('/api/admin/bounties')
-      if (!res.ok) throw new Error('Failed to load')
-      const { bounties } = await res.json()
-      setBounties(bounties || [])
+      const [bRes, nRes] = await Promise.all([
+        fetch('/api/admin/bounties'),
+        fetch('/api/notifications?unread=true'),
+      ])
+      if (bRes.ok) {
+        const { bounties } = await bRes.json()
+        setBounties(bounties || [])
+      }
+      if (nRes.ok) {
+        const { notifications } = await nRes.json()
+        setVerifyRequests((notifications || []).filter((n: { data?: { type?: string } }) => n.data?.type === 'lab_verification_request'))
+      }
     } catch {
       toast.error('Could not load review queue')
     } finally {
@@ -270,6 +279,54 @@ export default function AdminPage() {
           )
         })}
       </div>
+
+      {/* Lab Verification Requests */}
+      {verifyRequests.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 pt-4 border-t border-border/30">
+            <Shield className="w-4 h-4 text-blue-400" />
+            <h2 className="text-sm font-medium text-foreground">Lab Verification Requests</h2>
+            <Badge className="bg-blue-500/15 text-blue-400 border-0">{verifyRequests.length}</Badge>
+          </div>
+          {verifyRequests.map(req => {
+            const d = req.data as Record<string, string>
+            return (
+              <div key={req.id} className="border border-border/40 rounded-xl p-4 space-y-3">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="font-medium text-sm text-foreground">{d.lab_name}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Requesting: <span className="text-foreground">{d.current_tier}</span> → <span className="text-blue-400 font-medium">{d.requested_tier}</span>
+                    </p>
+                    {d.institution && <p className="text-xs text-muted-foreground">Institution: {d.institution}</p>}
+                    {d.notes && <p className="text-xs text-muted-foreground mt-1">{d.notes}</p>}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" className="rounded-full h-8 bg-emerald-600 hover:bg-emerald-700 text-white"
+                      onClick={async () => {
+                        await fetch('/api/labs/verify', { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ labId: d.lab_id, action: 'approve', tier: d.requested_tier }) })
+                        toast.success(`${d.lab_name} upgraded to ${d.requested_tier}`)
+                        setVerifyRequests(r => r.filter(x => x.id !== req.id))
+                      }}>
+                      Approve
+                    </Button>
+                    <Button size="sm" variant="outline" className="rounded-full h-8 border-red-500/30 text-red-400"
+                      onClick={async () => {
+                        await fetch('/api/labs/verify', { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ labId: d.lab_id, action: 'reject', reason: 'Insufficient credentials provided' }) })
+                        toast.success('Request declined')
+                        setVerifyRequests(r => r.filter(x => x.id !== req.id))
+                      }}>
+                      Decline
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       {/* How it works */}
       <div className="border-t border-border/30 pt-6 text-xs text-muted-foreground space-y-1">

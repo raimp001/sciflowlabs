@@ -26,7 +26,8 @@ import {
   Calendar,
   Bot,
   ShieldAlert,
-  ShieldCheck
+  ShieldCheck,
+  Loader2
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -59,10 +60,90 @@ function riskLabel(level: OpenClawRiskLevel) {
   return 'Low'
 }
 
+// ── Inline milestone submission form ──
+function MilestoneSubmitForm({ milestoneId, milestoneTitle, onSubmitted }: {
+  milestoneId: string; milestoneTitle: string; onSubmitted: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [notes, setNotes] = useState('')
+  const [links, setLinks] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  if (!open) return (
+    <Button size="sm" variant="outline" className="rounded-full mt-2" onClick={() => setOpen(true)}>
+      <Send className="w-3.5 h-3.5 mr-1.5" /> Submit Evidence
+    </Button>
+  )
+
+  return (
+    <div className="mt-2 p-3 border border-border/40 rounded-xl space-y-2">
+      <p className="text-xs font-medium text-foreground">Submit evidence for: {milestoneTitle}</p>
+      <Textarea value={notes} onChange={e => setNotes(e.target.value)}
+        placeholder="Describe what you've done, data collected, methodology followed..." className="text-sm min-h-[80px]" />
+      <input className="w-full h-9 rounded-lg border border-border/60 bg-secondary/30 px-3 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none"
+        value={links} onChange={e => setLinks(e.target.value)}
+        placeholder="Evidence links (comma-separated URLs or IPFS hashes)" />
+      <div className="flex gap-2">
+        <Button size="sm" className="rounded-full" disabled={saving || !notes.trim()} onClick={async () => {
+          setSaving(true)
+          const res = await fetch(`/api/milestones/${milestoneId}`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ submission_notes: notes, evidence_links: links.split(',').map(s => s.trim()).filter(Boolean) }),
+          })
+          setSaving(false)
+          if (res.ok) { toast.success('Milestone submitted for funder review'); onSubmitted() }
+          else { const d = await res.json(); toast.error(d.error || 'Submission failed') }
+        }}>
+          {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+          Submit
+        </Button>
+        <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+      </div>
+    </div>
+  )
+}
+
+// ── Inline milestone approval form ──
+function MilestoneApproveForm({ milestoneId, milestoneTitle, payoutPct, onActed }: {
+  milestoneId: string; milestoneTitle: string; payoutPct: number; onActed: () => void
+}) {
+  const [feedback, setFeedback] = useState('')
+  const [acting, setActing] = useState(false)
+
+  const act = async (action: 'approve' | 'reject') => {
+    if (action === 'reject' && !feedback.trim()) { toast.error('Please provide feedback when rejecting'); return }
+    setActing(true)
+    const res = await fetch(`/api/milestones/${milestoneId}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, feedback }),
+    })
+    setActing(false)
+    if (res.ok) { toast.success(action === 'approve' ? `Milestone approved — ${payoutPct}% released` : 'Milestone rejected'); onActed() }
+    else { const d = await res.json(); toast.error(d.error || 'Action failed') }
+  }
+
+  return (
+    <div className="mt-2 p-3 border border-amber-500/20 rounded-xl bg-amber-500/5 space-y-2">
+      <p className="text-xs font-medium text-amber-300">Lab submitted evidence for: {milestoneTitle}</p>
+      <Textarea value={feedback} onChange={e => setFeedback(e.target.value)}
+        placeholder="Feedback (required if rejecting)..." className="text-sm min-h-[60px]" />
+      <div className="flex gap-2">
+        <Button size="sm" className="rounded-full bg-emerald-600 hover:bg-emerald-700 text-white" disabled={acting} onClick={() => act('approve')}>
+          {acting ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <CheckCircle2 className="w-3.5 h-3.5 mr-1" />}
+          Approve & Release {payoutPct}%
+        </Button>
+        <Button size="sm" variant="outline" className="rounded-full border-red-500/30 text-red-400" disabled={acting} onClick={() => act('reject')}>
+          Reject
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 export default function BountyDetailPage({ params }: PageProps) {
   const { id } = use(params)
   const router = useRouter()
-  const { user, isAdmin } = useAuth()
+  const { user, isAdmin, dbUser, walletAddress } = useAuth()
   const { bounty, isLoading, error, transition } = useBounty(id)
   const [adminReviewNote, setAdminReviewNote] = useState('')
   const [isTransitioning, setIsTransitioning] = useState(false)
@@ -110,6 +191,8 @@ export default function BountyDetailPage({ params }: PageProps) {
   }
 
   const isOwner = bounty.funder_id === user?.id
+  // Check if the signed-in user is the assigned lab
+  const isAssignedLab = !!(bounty.selected_lab_id && dbUser?.role === 'lab')
   const stateMeta = stateMetadata[bounty.state as keyof typeof stateMetadata]
   const completedMilestones = bounty.milestones?.filter(m => m.status === 'verified').length || 0
   const totalMilestones = bounty.milestones?.length || 0
@@ -507,9 +590,41 @@ export default function BountyDetailPage({ params }: PageProps) {
                         </div>
                       </div>
                     </div>
+                    {milestone.submission_notes && (
+                      <div className="mt-2 p-2 rounded-lg bg-secondary/30 text-xs text-muted-foreground">
+                        <strong className="text-foreground">Submission notes:</strong> {milestone.submission_notes}
+                      </div>
+                    )}
+                    {milestone.evidence_links?.length > 0 && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {milestone.evidence_links.map((link: string, i: number) => (
+                          <a key={i} href={link} target="_blank" rel="noopener noreferrer"
+                            className="text-xs text-accent hover:underline">Evidence {i + 1} ↗</a>
+                        ))}
+                      </div>
+                    )}
                     {milestone.evidence_hash && (
                       <div className="text-xs font-mono text-muted-foreground bg-secondary p-2 rounded">
-                        Evidence: {milestone.evidence_hash.slice(0, 16)}...
+                        IPFS: {milestone.evidence_hash.slice(0, 20)}...
+                      </div>
+                    )}
+
+                    {/* Lab: submit evidence */}
+                    {isAssignedLab && (milestone.status === 'pending' || milestone.status === 'in_progress') &&
+                      bounty.state === 'active_research' && (
+                      <MilestoneSubmitForm milestoneId={milestone.id} milestoneTitle={milestone.title}
+                        onSubmitted={() => window.location.reload()} />
+                    )}
+
+                    {/* Funder: approve / reject submitted milestone */}
+                    {isOwner && milestone.status === 'submitted' && (
+                      <MilestoneApproveForm milestoneId={milestone.id} milestoneTitle={milestone.title}
+                        payoutPct={milestone.payout_percentage} onActed={() => window.location.reload()} />
+                    )}
+
+                    {milestone.review_feedback && (
+                      <div className="mt-2 p-2 rounded-lg bg-red-500/10 text-xs text-red-300">
+                        <strong>Feedback:</strong> {milestone.review_feedback}
                       </div>
                     )}
                   </div>

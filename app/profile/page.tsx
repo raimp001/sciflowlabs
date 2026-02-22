@@ -35,28 +35,59 @@ import { useAuth } from "@/contexts/auth-context"
 import Link from "next/link"
 
 export default function ProfilePage() {
-  const { user, isAuthenticated } = useAuth()
+  const { isAuthenticated, dbUser, walletAddress, refreshUser } = useAuth()
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [saveMsg, setSaveMsg] = useState<string | null>(null)
 
-  // Form state (would be populated from user data in production)
   const [formData, setFormData] = useState({
-    displayName: user?.email?.split("@")[0] || "User",
-    email: user?.email || "",
-    role: "funder", // "funder" | "lab" | "both"
+    displayName: dbUser?.full_name || "",
+    email: dbUser?.email || "",
+    role: dbUser?.role || "funder",
     organization: "",
     country: "",
     website: "",
     bio: "",
-    walletAddress: "",
+    walletAddress: walletAddress || "",
+  })
+
+  // Sync when dbUser loads
+  useState(() => {
+    if (dbUser) {
+      setFormData(prev => ({
+        ...prev,
+        displayName: dbUser.full_name || "",
+        email: dbUser.email || "",
+        role: dbUser.role || "funder",
+        walletAddress: walletAddress || "",
+      }))
+    }
   })
 
   const handleSave = async () => {
     setIsSaving(true)
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    setIsSaving(false)
-    setIsEditing(false)
+    setSaveMsg(null)
+    try {
+      const res = await fetch('/api/users', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          full_name: formData.displayName,
+          role: formData.role,
+          ...(formData.role === 'lab' ? {
+            lab: { name: formData.organization, website: formData.website, description: formData.bio },
+          } : {}),
+        }),
+      })
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error) }
+      await refreshUser()
+      setSaveMsg('Profile saved')
+      setIsEditing(false)
+    } catch (err) {
+      setSaveMsg(err instanceof Error ? err.message : 'Save failed')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   // Show sign-in prompt if not authenticated

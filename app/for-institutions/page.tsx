@@ -102,11 +102,20 @@ export default function ForInstitutionsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    // Simulate submission — wire to your CRM / email in production
-    await new Promise(r => setTimeout(r, 1000))
-    setLoading(false)
-    setSubmitted(true)
-    toast.success("We'll be in touch within 24 hours")
+    try {
+      const res = await fetch('/api/for-institutions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      })
+      if (!res.ok) throw new Error('Submission failed')
+      setSubmitted(true)
+      toast.success("We'll be in touch within 24 hours")
+    } catch {
+      toast.error("Something went wrong. Email us at support@sciflowlabs.com")
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (

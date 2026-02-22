@@ -145,3 +145,32 @@ export async function notifyFunderBountyRejected(bounty: { id: string; title: st
     `,
   })
 }
+
+export async function sendInstitutionalInquiry(data: {
+  name: string; org: string; role?: string; email: string
+  type?: string; budget?: string; message?: string
+}) {
+  return sendEmail({
+    to: ADMIN_EMAIL,
+    subject: `[SciFlow] Institutional inquiry from ${data.org}`,
+    html: `
+      <div style="font-family:sans-serif;max-width:600px;margin:0 auto;background:#0a0a0a;color:#f5f3ef;padding:32px;border-radius:12px">
+        <h2 style="margin:0 0 8px">New Institutional Inquiry</h2>
+        <p style="color:#8c8c8c;margin:0 0 24px">Someone wants to fund research on SciFlow.</p>
+        <div style="background:#1a1a1a;border-radius:8px;padding:16px;margin-bottom:16px;font-size:14px">
+          <div><strong>${data.name}</strong>${data.role ? ` — ${data.role}` : ''}</div>
+          <div style="color:#8c8c8c">${data.org}</div>
+          <div style="color:#8c8c8c">${data.email}</div>
+          ${data.type ? `<div style="color:#8c8c8c;margin-top:4px">Type: ${data.type}</div>` : ''}
+          ${data.budget ? `<div style="color:#8c8c8c">Budget: ${data.budget}</div>` : ''}
+        </div>
+        ${data.message ? `<div style="background:#1a1a1a;border-radius:8px;padding:16px;font-size:14px;color:#8c8c8c;white-space:pre-wrap">${data.message}</div>` : ''}
+        <div style="margin-top:24px">
+          <a href="mailto:${data.email}" style="display:inline-block;background:#f5f3ef;color:#121212;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">
+            Reply to ${data.name} →
+          </a>
+        </div>
+      </div>
+    `,
+  })
+}
