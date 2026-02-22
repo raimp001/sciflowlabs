@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
 import { runOpenClawReview } from '@/lib/agents/openclaw-orchestrator'
+import { notifyAdminNewBounty } from '@/lib/email'
 
 // Validation schemas
 const createBountySchema = z.object({
@@ -250,7 +251,7 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // Notify admins to review the new bounty before funding can begin.
+    // Notify admins (in-app + email)
     const { data: admins } = await supabase
       .from('users')
       .select('id')
@@ -261,16 +262,27 @@ export async function POST(request: NextRequest) {
         admins.map((admin: { id: string }) => ({
           user_id: admin.id,
           type: 'system',
-          title: 'New Bounty Requires Admin Review',
-          message: `"${bounty.title}" is awaiting ethics approval before funding.`,
-          data: {
-            bounty_id: bounty.id,
-            openclaw_trace_id: openClawResult.traceId,
-            openclaw_score: openClawResult.score,
-          },
+          title: 'New Bounty Requires Review',
+          message: `"${bounty.title}" — OpenClaw: ${openClawResult.decision.toUpperCase()} (${openClawResult.score}/100)`,
+          data: { bounty_id: bounty.id, openclaw_score: openClawResult.score },
         }))
       )
     }
+
+    // Send email notification to admin
+    const { data: funderProfile } = await supabase
+      .from('users').select('email').eq('id', user.id).single()
+
+    await notifyAdminNewBounty({
+      id: bounty.id,
+      title: bounty.title,
+      funderEmail: funderProfile?.email || user.email || 'unknown',
+      budget: bounty.total_budget,
+      currency: bounty.currency,
+      openClawScore: openClawResult.score,
+      openClawDecision: openClawResult.decision,
+      signals: openClawResult.signals,
+    }).catch(console.error)
 
     // Fetch complete bounty with milestones
     const { data: completeBounty } = await supabase

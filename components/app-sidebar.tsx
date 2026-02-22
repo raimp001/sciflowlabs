@@ -11,7 +11,9 @@ import {
   Settings,
   Scale,
   Sparkles,
+  Shield,
 } from "lucide-react"
+import { useAuth } from "@/contexts/auth-context"
 import { ConnectWalletButton } from "@/components/connect-wallet-button"
 import { useSidebar } from "@/components/ui/sidebar"
 import { cn } from "@/lib/utils"
@@ -35,6 +37,7 @@ export function AppSidebar() {
   const pathname = usePathname()
   const { state, toggleSidebar } = useSidebar()
   const collapsed = state === "collapsed"
+  const { dbUser } = useAuth()
 
   return (
     <aside
@@ -110,6 +113,23 @@ export function AppSidebar() {
             </Link>
           )
         })}
+
+        {/* Admin link — only for admins */}
+        {dbUser?.role === 'admin' && (
+          <Link
+            href="/admin"
+            title={collapsed ? 'Admin Review' : undefined}
+            className={cn(
+              "flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm transition-colors duration-150",
+              pathname.startsWith('/admin')
+                ? "bg-amber-500/20 text-amber-300 font-medium"
+                : "text-amber-400/70 hover:text-amber-300 hover:bg-sidebar-accent/50"
+            )}
+          >
+            <Shield className="w-4 h-4 shrink-0" />
+            {!collapsed && <span>Admin Queue</span>}
+          </Link>
+        )}
 
         {/* Wallet */}
         {!collapsed && <ConnectWalletButton variant="sidebar" />}
