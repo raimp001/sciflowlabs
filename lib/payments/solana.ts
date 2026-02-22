@@ -175,14 +175,10 @@ export class SolanaPaymentService {
       // 2. Sign with platform authority
       // 3. Submit and confirm transaction
 
-      console.log(`[Solana] Releasing ${params.amount} USDC from ${params.escrowPDA} to ${params.recipientWallet}`)
-
-      // Mock successful release
-      const mockTxHash = `sol_release_${Date.now()}_${params.escrowPDA.slice(0, 8)}`
-
+      // Solana escrow program integration pending — SOLANA_ESCROW_PROGRAM_ID required
       return {
-        success: true,
-        txHash: mockTxHash,
+        success: false,
+        error: 'Solana escrow program not yet configured. Set SOLANA_ESCROW_PROGRAM_ID and SOLANA_PLATFORM_WALLET.',
       }
     } catch (error) {
       return {
@@ -201,13 +197,9 @@ export class SolanaPaymentService {
     }
 
     try {
-      console.log(`[Solana] Refunding ${params.amount} USDC from ${params.escrowPDA}`)
-
-      const mockTxHash = `sol_refund_${Date.now()}_${params.escrowPDA.slice(0, 8)}`
-
       return {
-        success: true,
-        txHash: mockTxHash,
+        success: false,
+        error: 'Solana escrow program not yet configured. Set SOLANA_ESCROW_PROGRAM_ID and SOLANA_PLATFORM_WALLET.',
       }
     } catch (error) {
       return {

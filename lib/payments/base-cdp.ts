@@ -225,14 +225,10 @@ export class BaseCDPPaymentService {
       // })
       // await transfer.wait()
 
-      console.log(`[Base CDP] Releasing ${params.amount} USDC from ${params.escrowAddress} to ${params.recipientWallet}`)
-
-      // Mock successful release
-      const mockTxHash = `0x${Date.now().toString(16)}${params.escrowAddress.slice(2, 18)}`
-
+      // CDP SDK integration pending — AGENT_WALLET_DATA required
       return {
-        success: true,
-        txHash: mockTxHash,
+        success: false,
+        error: 'CDP wallet not yet configured. Set AGENT_WALLET_DATA to enable on-chain releases.',
       }
     } catch (error) {
       return {
@@ -253,13 +249,10 @@ export class BaseCDPPaymentService {
     try {
       await this.initializeCDPClient()
 
-      console.log(`[Base CDP] Refunding ${params.amount} USDC from ${params.escrowAddress}`)
-
-      const mockTxHash = `0x${Date.now().toString(16)}refund${params.escrowAddress.slice(2, 12)}`
-
+      // CDP SDK integration pending — AGENT_WALLET_DATA required
       return {
-        success: true,
-        txHash: mockTxHash,
+        success: false,
+        error: 'CDP wallet not yet configured. Set AGENT_WALLET_DATA to enable on-chain refunds.',
       }
     } catch (error) {
       return {
@@ -306,21 +299,9 @@ export class BaseCDPPaymentService {
     }
 
     try {
-      // In production with CDP SDK:
-      // const wallet = await Wallet.create({ networkId: this.config.networkId })
-      // return {
-      //   success: true,
-      //   walletId: wallet.getId(),
-      //   address: (await wallet.getDefaultAddress()).getId(),
-      // }
-
-      const mockAddress = `0x${Buffer.from(userId).toString('hex').slice(0, 40)}`
-      const mockWalletId = `wallet_${userId.slice(0, 8)}`
-
       return {
-        success: true,
-        walletId: mockWalletId,
-        address: mockAddress,
+        success: false,
+        error: 'CDP wallet creation requires AGENT_WALLET_DATA to be configured.',
       }
     } catch (error) {
       return {
