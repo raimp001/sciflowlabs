@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
   const now = new Date()
   const results: Record<string, number> = {}
 
-  // ── 1. Overdue milestones ──────────────────────────────────────────────
+  // ── 1. Overdue milestones ─────────────────────────────────────────
   const { data: overdueMilestones } = await supabase
     .from('milestones')
     .select('id, title, bounty_id, due_date, bounty:bounties(funder_id, selected_lab_id, state)')
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
       // Mark milestone overdue
       await supabase
         .from('milestones')
-        .update({ status: 'overdue' as any })
+        .update({ status: 'overdue' as any, updated_at: now.toISOString() })
         .eq('id', ms.id)
 
       // Notify funder
@@ -58,21 +58,29 @@ export async function GET(request: NextRequest) {
         })
       }
 
-      // Notify lab
+      // Notify lab — selected_lab_id is a lab ID, look up its user_id
       if (bounty.selected_lab_id) {
-        await supabase.from('notifications').insert({
-          user_id: bounty.selected_lab_id,
-          type: 'milestone_overdue',
-          title: 'Milestone Past Due',
-          message: `Milestone "${ms.title}" deadline has passed. Submit evidence immediately to avoid dispute.`,
-          data: { bounty_id: ms.bounty_id, milestone_id: ms.id },
-        })
+        const { data: lab } = await supabase
+          .from('labs')
+          .select('user_id')
+          .eq('id', bounty.selected_lab_id)
+          .single()
+
+        if (lab?.user_id) {
+          await supabase.from('notifications').insert({
+            user_id: lab.user_id,
+            type: 'milestone_overdue',
+            title: 'Milestone Past Due',
+            message: `Milestone "${ms.title}" deadline has passed. Submit evidence immediately to avoid dispute.`,
+            data: { bounty_id: ms.bounty_id, milestone_id: ms.id },
+          })
+        }
       }
     }
     results.overdue_milestones = overdueMilestones.length
   }
 
-  // ── 2. Bidding period expiry — no proposals submitted ─────────────────
+  // ── 2. Bidding period expiry — no proposals submitted ─────────────────────
   const biddingCutoff = new Date(now)
   biddingCutoff.setDate(biddingCutoff.getDate() - BIDDING_PERIOD_DAYS)
 
@@ -111,7 +119,7 @@ export async function GET(request: NextRequest) {
     results.expired_bidding = staleBidding.length
   }
 
-  // ── 3. Admin review timeout (72 hours) ───────────────────────────────
+  // ── 3. Admin review timeout (72 hours) ──────────────────────────────
   const adminCutoff = new Date(now)
   adminCutoff.setHours(adminCutoff.getHours() - ADMIN_REVIEW_TIMEOUT_HOURS)
 
@@ -144,7 +152,7 @@ export async function GET(request: NextRequest) {
     results.stale_admin_review = staleAdminReview.length
   }
 
-  // ── 4. Log watchdog run ───────────────────────────────────────────────
+  // ── 4. Log watchdog run ───────────────────────────────────────────
   await supabase.from('activity_logs').insert({
     user_id: null,
     action: 'cron_watchdog_run',
