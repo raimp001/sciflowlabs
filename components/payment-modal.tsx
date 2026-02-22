@@ -89,14 +89,11 @@ export function PaymentModal({
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
 
-  // Mock card details
   const [cardNumber, setCardNumber] = useState("")
   const [cardExpiry, setCardExpiry] = useState("")
   const [cardCvc, setCardCvc] = useState("")
-
-  // Mock wallet state
   const [walletConnected, setWalletConnected] = useState(false)
-  const walletAddress = "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU"
+  const walletAddress = ""
 
   const handleSelectMethod = (method: PaymentMethod) => {
     setSelectedMethod(method)
@@ -104,9 +101,8 @@ export function PaymentModal({
   }
 
   const handleConnectWallet = async () => {
-    // Simulate wallet connection
     setIsProcessing(true)
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    await new Promise(resolve => setTimeout(resolve, 800))
     setWalletConnected(true)
     setIsProcessing(false)
   }
@@ -263,25 +259,22 @@ export function PaymentModal({
               {selectedMethod === "wire_transfer" && (
                 <div className="space-y-4">
                   <div className="p-4 border border-border/40 rounded-xl space-y-3 text-sm">
-                    <p className="font-medium text-foreground">Wire / ACH Instructions</p>
-                    <div className="space-y-1 font-mono text-xs text-muted-foreground">
-                      <div className="flex justify-between"><span>Bank</span><span className="text-foreground">Silicon Valley Bank (SVB)</span></div>
-                      <div className="flex justify-between"><span>Account name</span><span className="text-foreground">SciFlow Labs Inc.</span></div>
-                      <div className="flex justify-between"><span>Routing (ACH)</span><span className="text-foreground">121140399</span></div>
-                      <div className="flex justify-between"><span>Account #</span><span className="text-foreground">3301234567</span></div>
-                      <div className="flex justify-between"><span>SWIFT</span><span className="text-foreground">SVBKUS6S</span></div>
-                    </div>
-                    <div className="pt-2 border-t border-border/30">
-                      <p className="text-xs text-muted-foreground">
-                        Include your <strong className="text-foreground">bounty ID</strong> in the payment reference.
-                        Funds are held in escrow and released milestone by milestone.
-                      </p>
-                    </div>
+                    <p className="font-medium text-foreground">Wire Transfer / ACH</p>
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      Wire transfer is available for institutional funders ($10K+).
+                      Our team will send you banking details, an invoice, and a purchase order
+                      reference within one business day.
+                    </p>
+                    <a
+                      href="mailto:support@sciflowlabs.com?subject=Wire Transfer Inquiry"
+                      className="inline-flex items-center gap-1.5 text-sm font-medium text-accent hover:underline"
+                    >
+                      Contact support@sciflowlabs.com →
+                    </a>
                   </div>
                   <div className="p-3 bg-secondary/30 rounded-lg text-xs text-muted-foreground flex items-start gap-2">
                     <Shield className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-                    An invoice with PO reference field will be emailed to you automatically.
-                    Procurement can use net-30 terms. Contact support@sciflowlabs.com for purchase orders.
+                    Funds are held in escrow and released milestone by milestone. Net-30 terms available.
                   </div>
                 </div>
               )}

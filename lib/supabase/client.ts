@@ -5,9 +5,7 @@ export function createClient() {
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
   if (!supabaseUrl || !supabaseKey) {
-    // Return a mock client for demo purposes
-    console.warn('Supabase not configured. Using mock client.')
-    return null as any
+    throw new Error('Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.')
   }
 
   return createBrowserClient(supabaseUrl, supabaseKey) as any
