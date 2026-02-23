@@ -52,7 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Load DB profile after wallet auth
   const loadProfile = useCallback(async (userId: string) => {
-    if (!supabase) return
+    if (!supabase) return null
     const { data: userData } = await supabase
       .from('users')
       .select('*')
@@ -67,7 +67,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLab(labData)
       }
     }
+    return userData
   }, [supabase])
+
+  // Redirect new users to onboarding
+  const redirectNewUser = useCallback((profile: DbUser | null) => {
+    if (typeof window === 'undefined') return
+    const isOnboarding = window.location.pathname === '/onboarding'
+    const isAuth = window.location.pathname.startsWith('/login') || window.location.pathname.startsWith('/signup')
+    if (!isOnboarding && !isAuth && profile && !profile.role) {
+      window.location.href = '/onboarding'
+    }
+  }, [])
 
   // On mount — check for existing Supabase session (persists across refreshes)
   useEffect(() => {
@@ -75,7 +86,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user) {
         setIsAuthenticated(true)
-        await loadProfile(session.user.id)
+        const profile = await loadProfile(session.user.id)
+        redirectNewUser(profile as DbUser | null)
       }
     })
 

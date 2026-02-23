@@ -23,13 +23,14 @@ export async function PATCH(req: NextRequest) {
   if (error || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()
-  const { full_name, avatar_url, role, lab } = body
+  const { full_name, avatar_url, role, lab, onboarding_completed } = body
 
   // Update user profile
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
   if (full_name !== undefined) updates.full_name = full_name
   if (avatar_url !== undefined) updates.avatar_url = avatar_url
   if (role !== undefined && ['funder', 'lab'].includes(role)) updates.role = role
+  if (onboarding_completed !== undefined) updates.onboarding_completed = onboarding_completed
 
   const { error: updateErr } = await supabase
     .from('users')

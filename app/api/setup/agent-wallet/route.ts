@@ -1,77 +1,197 @@
 /**
  * Creates the SciFlow agent wallet via Coinbase CDP REST API.
- * Uses Ed25519 JWT signing directly — no SDK ESM issues.
+ * Uses direct JWT signing to avoid SDK bundling/runtime issues.
  *
  * Call once: curl "https://sciflowlabs.com/api/setup/agent-wallet?secret=YOUR_SECRET"
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createPrivateKey, sign, randomBytes } from 'node:crypto'
+import {
+  createPrivateKey,
+  createSign,
+  randomBytes,
+  sign as signDetached,
+  type KeyObject,
+} from 'node:crypto'
 
 export const runtime = 'nodejs'
 export const maxDuration = 30
 
 const CDP_BASE = 'https://api.cdp.coinbase.com/platform'
+const ED25519_PKCS8_PREFIX = Buffer.from('302e020100300506032b657004220420', 'hex')
 
-function buildEdDSAJwt(apiKeyName: string, apiKeySecret: string, method: string, path: string) {
-  // The CDP private key is a 64-byte raw Ed25519 keypair (seed || public)
-  const raw = Buffer.from(apiKeySecret, 'base64')
-  const seed = raw.slice(0, 32)
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
 
-  // Wrap seed in PKCS#8 DER format for Node.js crypto
-  const pkcs8Header = Buffer.from('302e020100300506032b657004220420', 'hex')
-  const privateKey = createPrivateKey({
-    key: Buffer.concat([pkcs8Header, seed]),
-    format: 'der',
-    type: 'pkcs8',
-  })
+function getPath(source: unknown, path: string[]): unknown {
+  let current: unknown = source
+  for (const segment of path) {
+    if (!isRecord(current)) return undefined
+    current = current[segment]
+  }
+  return current
+}
 
-  const nonce = randomBytes(8).toString('hex')
+function pickString(...candidates: unknown[]): string | null {
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim().length > 0) {
+      return candidate.trim()
+    }
+  }
+  return null
+}
+
+function parseExistingWalletData(raw: string): { wallet_id: string; seed: string } | null {
+  try {
+    const parsed: unknown = JSON.parse(raw)
+    if (!isRecord(parsed)) return null
+
+    const walletId = pickString(parsed.wallet_id, parsed.walletId)
+    const seed = pickString(parsed.seed)
+    if (!walletId || !seed) return null
+
+    return { wallet_id: walletId, seed }
+  } catch {
+    return null
+  }
+}
+
+function parseCdpPrivateKey(apiKeySecret: string): KeyObject {
+  const normalized = apiKeySecret.replace(/\\n/g, '\n').trim()
+
+  if (
+    normalized.includes('-----BEGIN PRIVATE KEY-----') ||
+    normalized.includes('-----BEGIN EC PRIVATE KEY-----')
+  ) {
+    return createPrivateKey({ key: normalized, format: 'pem' })
+  }
+
+  const compact = normalized.replace(/\s+/g, '')
+  const maybeBase64 = /^[A-Za-z0-9+/=_-]+$/.test(compact)
+  if (!maybeBase64) {
+    throw new Error('Unsupported CDP private key format')
+  }
+
+  const paddedBase64 = compact.replace(/-/g, '+').replace(/_/g, '/')
+  const raw = Buffer.from(paddedBase64, 'base64')
+  if (raw.length === 0) {
+    throw new Error('Unsupported CDP private key format')
+  }
+
+  if (raw.length === 32 || raw.length === 64) {
+    const seed = raw.subarray(0, 32)
+    const pkcs8Key = Buffer.from([
+      ...new Uint8Array(ED25519_PKCS8_PREFIX),
+      ...new Uint8Array(seed),
+    ])
+    return createPrivateKey({
+      key: pkcs8Key,
+      format: 'der',
+      type: 'pkcs8',
+    })
+  }
+
+  try {
+    // Some environments store PKCS#8 DER as base64.
+    return createPrivateKey({
+      key: raw,
+      format: 'der',
+      type: 'pkcs8',
+    })
+  } catch {
+    throw new Error('Unsupported CDP private key format')
+  }
+}
+
+function buildJwt(apiKeyName: string, privateKey: KeyObject, method: string, path: string): string {
+  const normalizedMethod = method.toUpperCase()
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`
   const now = Math.floor(Date.now() / 1000)
+  const nonce = randomBytes(8).toString('hex')
+  const algorithm = privateKey.asymmetricKeyType === 'ec' ? 'ES256' : 'EdDSA'
 
-  const header = Buffer.from(JSON.stringify({ alg: 'EdDSA', kid: apiKeyName, nonce })).toString('base64url')
-  const payload = Buffer.from(JSON.stringify({
-    iss: 'cdp',
-    sub: apiKeyName,
-    nbf: now,
-    exp: now + 120,
-    uris: [`${method} ${CDP_BASE.replace('https://', '')}${path}`],
-  })).toString('base64url')
+  const header = Buffer.from(
+    JSON.stringify({ alg: algorithm, kid: apiKeyName, nonce })
+  ).toString('base64url')
+
+  const payload = Buffer.from(
+    JSON.stringify({
+      iss: 'cdp',
+      sub: apiKeyName,
+      nbf: now - 5,
+      exp: now + 120,
+      uris: [`${normalizedMethod} ${CDP_BASE}${normalizedPath}`],
+    })
+  ).toString('base64url')
 
   const signingInput = `${header}.${payload}`
-  const signature = sign(null, Buffer.from(signingInput), privateKey).toString('base64url')
+  const signature =
+    algorithm === 'ES256'
+      ? (() => {
+          const signer = createSign('SHA256')
+          signer.update(signingInput)
+          signer.end()
+          return signer.sign(privateKey).toString('base64url')
+        })()
+      : signDetached(null, new TextEncoder().encode(signingInput), privateKey).toString('base64url')
 
   return `${signingInput}.${signature}`
 }
 
-async function cdpRequest(method: string, path: string, body?: unknown) {
-  const apiKeyName = process.env.CDP_API_KEY_NAME!
-  const apiKeySecret = process.env.CDP_API_KEY_PRIVATE_KEY!
+async function cdpRequest<T>(
+  method: string,
+  path: string,
+  body: unknown,
+  apiKeyName: string,
+  privateKey: KeyObject
+): Promise<T> {
+  const normalizedMethod = method.toUpperCase()
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`
 
-  const jwt = buildEdDSAJwt(apiKeyName, apiKeySecret, method, path)
-  const res = await fetch(`${CDP_BASE}${path}`, {
-    method,
+  const jwt = buildJwt(apiKeyName, privateKey, normalizedMethod, normalizedPath)
+  const res = await fetch(`${CDP_BASE}${normalizedPath}`, {
+    method: normalizedMethod,
     headers: {
       Authorization: `Bearer ${jwt}`,
       'Content-Type': 'application/json',
-      'Correlation-Context': `sdk_version=sciflow/1.0,sdk_language=node`,
+      'Correlation-Context': 'sdk_version=sciflow/1.0,sdk_language=node',
     },
-    body: body ? JSON.stringify(body) : undefined,
+    body: body === undefined ? undefined : JSON.stringify(body),
   })
 
   const text = await res.text()
-  if (!res.ok) throw new Error(`CDP API ${res.status}: ${text}`)
-  return JSON.parse(text)
+  if (!res.ok) {
+    throw new Error(`CDP API request failed (${res.status})`)
+  }
+
+  if (!text) {
+    return {} as T
+  }
+
+  try {
+    return JSON.parse(text) as T
+  } catch {
+    throw new Error('CDP API returned non-JSON response')
+  }
 }
 
 export async function GET(req: NextRequest) {
-  const secret = req.nextUrl.searchParams.get('secret')
+  const secret = req.nextUrl.searchParams.get('secret') ?? req.headers.get('x-setup-secret')
   if (!process.env.SETUP_SECRET || secret !== process.env.SETUP_SECRET) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  if (process.env.AGENT_WALLET_DATA) {
-    return NextResponse.json({ status: 'already_configured', message: 'Agent wallet already set.' })
+  const existingWalletRaw = process.env.AGENT_WALLET_DATA
+  if (existingWalletRaw) {
+    const existingWallet = parseExistingWalletData(existingWalletRaw)
+    if (existingWallet) {
+      return NextResponse.json({
+        status: 'already_configured',
+        message: 'Agent wallet already set.',
+        wallet_id: existingWallet.wallet_id,
+      })
+    }
   }
 
   const apiKeyName = process.env.CDP_API_KEY_NAME
@@ -80,33 +200,53 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'CDP keys not in Vercel env' }, { status: 500 })
   }
 
-  // Check if manual wallet data was passed in body
-  const body = req.nextUrl.searchParams.get('wallet_id')
-  if (body) {
-    return NextResponse.json({
-      message: 'To manually set wallet data, run:',
-      command: `printf '{"wallet_id":"WALLET_ID","seed":"SEED","network_id":"base-mainnet"}' | vercel env add AGENT_WALLET_DATA production --force`,
-    })
-  }
-
   try {
-    // 1. Create wallet
-    const wallet = await cdpRequest('POST', '/v1/wallets', {
-      wallet: { network_id: 'base-mainnet' },
-    })
-    const walletId = wallet.wallet?.id
-    if (!walletId) throw new Error('No wallet ID: ' + JSON.stringify(wallet))
+    const privateKey = parseCdpPrivateKey(apiKeySecret)
 
-    // 2. Create default address
-    const addrRes = await cdpRequest('POST', `/v1/wallets/${walletId}/addresses`, {})
-    const address = addrRes.address_id
+    const walletResponse = await cdpRequest<Record<string, unknown>>(
+      'POST',
+      '/v1/wallets',
+      { wallet: { network_id: 'base-mainnet' } },
+      apiKeyName,
+      privateKey
+    )
 
-    // 3. Export seed
-    const exportRes = await cdpRequest('POST', `/v1/wallets/${walletId}:exportWallet`, {})
+    const walletId = pickString(
+      getPath(walletResponse, ['wallet', 'id']),
+      getPath(walletResponse, ['wallet_id']),
+      getPath(walletResponse, ['id'])
+    )
+    if (!walletId) throw new Error('Wallet ID missing from CDP response')
+
+    const addressResponse = await cdpRequest<Record<string, unknown>>(
+      'POST',
+      `/v1/wallets/${walletId}/addresses`,
+      {},
+      apiKeyName,
+      privateKey
+    )
+
+    const address = pickString(
+      getPath(addressResponse, ['address_id']),
+      getPath(addressResponse, ['address', 'address_id']),
+      getPath(addressResponse, ['address', 'id'])
+    )
+    if (!address) throw new Error('Address missing from CDP response')
+
+    const exportResponse = await cdpRequest<Record<string, unknown>>(
+      'POST',
+      `/v1/wallets/${walletId}:exportWallet`,
+      {},
+      apiKeyName,
+      privateKey
+    )
+
+    const seed = pickString(getPath(exportResponse, ['seed']))
+    if (!seed) throw new Error('Wallet seed missing from CDP response')
 
     const walletData = JSON.stringify({
       wallet_id: walletId,
-      seed: exportRes.seed,
+      seed,
       network_id: 'base-mainnet',
     })
 
@@ -114,30 +254,31 @@ export async function GET(req: NextRequest) {
       status: 'success',
       address,
       basescan: `https://basescan.org/address/${address}`,
+      wallet_id: walletId,
       AGENT_WALLET_DATA: walletData,
       next_steps: [
-        '1. Copy AGENT_WALLET_DATA value below',
-        "2. Run: printf 'PASTE' | vercel env add AGENT_WALLET_DATA production --force",
-        '3. Run: vercel --prod --yes',
-        `4. Send USDC to ${address} on Base to fund the agent`,
+        '1. Copy the AGENT_WALLET_DATA value',
+        '2. Save AGENT_WALLET_DATA in your deployment environment',
+        '3. Redeploy so the app picks up the new env var',
+        `4. Fund the wallet with USDC on Base: send to ${address}`,
       ],
     })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    const isRateLimit = msg.includes('429') || msg.includes('rate_limit') || msg.includes('resource_exhausted')
+    console.error('[setup/agent-wallet] setup failed', err)
 
-    return NextResponse.json({
-      error: isRateLimit ? 'CDP rate limit hit — try again tomorrow or create wallet manually' : msg,
-      keys_valid: true,
-      ...(isRateLimit ? {
-        manual_option: {
-          step1: 'Go to https://portal.cdp.coinbase.com → Wallets → Create Wallet (Base Mainnet)',
-          step2: 'Export the wallet seed',
-          step3: 'Build AGENT_WALLET_DATA: {"wallet_id":"<id>","seed":"<seed>","network_id":"base-mainnet"}',
-          step4: "Run: printf 'VALUE' | vercel env add AGENT_WALLET_DATA production --force",
-          step5: 'Run: vercel --prod --yes',
-        },
-      } : {}),
-    }, { status: isRateLimit ? 429 : 500 })
+    const response: {
+      error: string
+      keys_present: { name: boolean; secret: boolean }
+      details?: string
+    } = {
+      error: 'Failed to create agent wallet',
+      keys_present: { name: !!apiKeyName, secret: !!apiKeySecret },
+    }
+
+    if (process.env.NODE_ENV !== 'production') {
+      response.details = err instanceof Error ? err.message : String(err)
+    }
+
+    return NextResponse.json(response, { status: 500 })
   }
 }
