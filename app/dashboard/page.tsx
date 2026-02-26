@@ -279,15 +279,39 @@ function WelcomeDashboard() {
 export default function DashboardPage() {
   const { dbUser, isAuthenticated, isLoading } = useAuth()
 
-// While bootstrapping, show WelcomeDashboard (safe default)
-  // It will re-render instantly when auth state resolves
-  if (isLoading && !dbUser) return <WelcomeDashboard />
+// Still bootstrapping — show skeleton, not WelcomeDashboard
+  if (isLoading) {
+    return (
+      <div className="max-w-3xl mx-auto space-y-4 py-8">
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-6 w-48" />
+          <Skeleton className="h-9 w-32 rounded-full" />
+        </div>
+        <Skeleton className="h-24 rounded-xl" />
+        <Skeleton className="h-16 rounded-xl" />
+        <Skeleton className="h-16 rounded-xl" />
+      </div>
+    )
+  }
 
   if (!isAuthenticated) return <WelcomeDashboard />
 
+  // Authenticated but profile still loading — show skeleton
+  if (!dbUser) {
+    return (
+      <div className="max-w-3xl mx-auto space-y-4 py-8">
+        <Skeleton className="h-6 w-48" />
+        <Skeleton className="h-24 rounded-xl" />
+        <Skeleton className="h-16 rounded-xl" />
+      </div>
+    )
+  }
+
   const role = dbUser?.role
-  if (!role) return <WelcomeDashboard />
   if (role === 'funder' || role === 'admin') return <FunderDashboard />
   if (role === 'lab') return <LabDashboard />
+  // Role not set — redirect to onboarding
+  if (typeof window !== 'undefined' && window.location.pathname !== '/onboarding') {
+    window.location.href = '/onboarding'
+  }
   return <WelcomeDashboard />
-}
