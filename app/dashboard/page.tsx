@@ -315,3 +315,4 @@ export default function DashboardPage() {
     window.location.href = '/onboarding'
   }
   return <WelcomeDashboard />
+  }
