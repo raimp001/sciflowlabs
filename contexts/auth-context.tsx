@@ -54,7 +54,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isBootstrapping, setIsBootstrapping] = useState(true)
   const authInProgress = useRef(false)
 
-  const supabase = createClient()
+  // Stable Supabase client — created once, never re-created on re-render
+  const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null)
+  if (supabaseRef.current === null) {
+    try {
+      supabaseRef.current = createClient()
+    } catch {
+      supabaseRef.current = null
+    }
+  }
+  const supabase = supabaseRef.current
 
   // Load DB profile after wallet auth
   const loadProfile = useCallback(async (userId: string) => {
@@ -64,15 +73,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .select('*')
       .eq('id', userId)
       .single()
-
     if (!userData) {
       setDbUser(null)
       setLab(null)
       return null
     }
-
     setDbUser(userData)
-
     if (userData.role === 'lab') {
       const { data: labData } = await supabase
         .from('labs').select('*').eq('user_id', userId).single()
@@ -80,26 +86,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } else {
       setLab(null)
     }
-
     return userData
   }, [supabase])
 
   // Redirect new users (or incomplete onboarding) to /onboarding
-  // Checks onboarding_completed flag — NOT role (since role has a DB default)
   const redirectNewUser = useCallback((profile: DbUser | null) => {
     if (typeof window === 'undefined') return
     const isOnboarding = window.location.pathname === '/onboarding'
     const isAuth = window.location.pathname.startsWith('/login') ||
       window.location.pathname.startsWith('/signup')
-
     if (!isOnboarding && !isAuth && profile && !profile.onboarding_completed) {
       window.location.href = '/onboarding'
     }
   }, [])
 
-  // On mount — check for existing Supabase session (persists across refreshes)
+  // On mount — check for existing Supabase session
   useEffect(() => {
-    if (!supabase) return
+    if (!supabase) {
+      // No Supabase configured — stop bootstrapping immediately
+      setIsBootstrapping(false)
+      return
+    }
+
     let mounted = true
 
     supabase.auth.getSession().then(async (result: { data: { session: { user?: { id: string } } | null } }) => {
@@ -162,17 +170,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAuthStep('signing')
       setAuthError(null)
 
-      // Get challenge from server
       const res = await fetch(`/api/auth/wallet?address=${walletAddress}`)
       if (!res.ok) throw new Error('Failed to get sign-in challenge')
       const { message } = await res.json()
 
-      // Sign with the wallet (supports EIP-1271 for Smart Wallet)
       const signature = await signMessageAsync({ message })
-
       setAuthStep('authenticating')
 
-      // Verify + get Supabase credentials
       const authRes = await fetch('/api/auth/wallet', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -185,7 +189,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const { email, tempPassword } = authData
 
-      // Sign into Supabase — creates a persistent session
       if (supabase) {
         const { error: signInError } = await supabase.auth.signInWithPassword({
           email,
@@ -256,7 +259,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         authError,
         dbUser,
         lab,
-        isFunder: dbUser?.role === 'funder',
+        isFunder: dbUser?.role === 'funder' || dbUser?.role === 'admin',
         isLab: dbUser?.role === 'lab',
         isAdmin: dbUser?.role === 'admin',
         connectWallet,
@@ -266,8 +269,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     >
       {/* Auth step banner */}
       {authStep !== 'idle' && (
-        <div className="fixed top-0 left-0 right-0 z-50 bg-yellow-500/90 text-black text-sm font-medium py-2 px-4 text-center">
-          ↻  {stepLabel}
+        <div className="fixed top-0 inset-x-0 z-50 flex items-center justify-center gap-2 bg-background/90 backdrop-blur border-b py-2 text-sm text-muted-foreground">
+          <span className="animate-spin">↻</span> {stepLabel}
         </div>
       )}
       {children}
